@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ATLAS: THE BOOK v4.0 - NNA SIMULATOR</title>
+<style>
+    :root {
+        --win-bg: #c0c0c0; --win-high: #ffffff; --win-shadow: #808080;
+        --win-deep: #000000; --win-blue: linear-gradient(90deg, #000080, #1084d0);
+    }
+    
+    html, body { height: 100vh; overflow: hidden; margin: 0; padding: 0; background-color: #000000; font-family: 'Tahoma', sans-serif; font-size: 13px; color: #000; }
+    
+    .master-app { display: flex; flex-direction: column; height: 100%; max-width: 1250px; margin: 0 auto; padding: 8px; box-sizing: border-box; }
+    
+    ::-webkit-scrollbar { width: 14px; }
+    ::-webkit-scrollbar-track { background: #dfdfdf; border-left: 1px solid var(--win-shadow); box-shadow: inset 1px 1px 0px #000; }
+    ::-webkit-scrollbar-thumb { background: var(--win-bg); border: 1px solid var(--win-high); border-right-color: var(--win-deep); border-bottom-color: var(--win-deep); }
+    ::-webkit-scrollbar-thumb:active { background: #a0a0a0; }
+
+    .window { background: var(--win-bg); box-shadow: inset 1px 1px var(--win-high), inset -1px -1px var(--win-shadow), 1px 1px 0px 1px var(--win-deep); padding: 3px; display: flex; flex-direction: column; margin-bottom: 8px; }
+    .title-bar { background: var(--win-blue); height: 20px; padding: 2px 6px; display: flex; justify-content: space-between; align-items: center; color: white; font-weight: bold; font-size: 12px; letter-spacing: 0.5px; flex-shrink: 0; }
+    .content-area { padding: 6px; flex-grow: 1; overflow-y: auto; }
+    
+    .header-dashboard { display: flex; gap: 8px; margin-bottom: 8px; flex-shrink: 0; height: 60px; }
+    .logo-block { background: #000; padding: 0 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px solid var(--win-shadow); box-shadow: inset 2px 2px #000, inset -2px -2px #444; flex: 1; }
+    .logo-main { color: #d4af37; font-family: 'Courier New', monospace; font-size: 28px; font-weight: bold; letter-spacing: 4px; text-shadow: 0px 0px 4px #d4af37; margin: 0; }
+    .logo-sub { color: #888; font-family: 'Tahoma', sans-serif; font-size: 10px; letter-spacing: 6px; margin-top: 2px; }
+
+    .grid-container { display: flex; gap: 8px; flex-grow: 1; overflow: hidden; min-height: 0; }
+    
+    .col { 
+        flex: 1; 
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    
+    .metric-lg { font-size: 24px; font-weight: bold; font-family: 'Courier New', monospace; color: #006400; }
+    .metric-md { font-size: 16px; font-weight: bold; font-family: 'Courier New', monospace; }
+    .metric-label { font-size: 11px; color: #555; font-weight: bold; position: relative; cursor: help; display: inline-block; border-bottom: 1px dotted #000; }
+    
+    /* Tooltip styles */
+    [data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #333;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        width: 220px;
+        font-size: 12px;
+        z-index: 100;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s, bottom 0.2s;
+    }
+    
+    [data-tooltip]:hover::after {
+        opacity: 1;
+        bottom: 115%;
+    }
+
+    .time-allocator { display: flex; align-items: center; justify-content: space-between; background: #d4d0c8; border: 1px solid var(--win-shadow); padding: 4px 6px; margin-bottom: 4px; box-shadow: inset 1px 1px var(--win-high); }
+    .time-label { width: 120px; font-weight: bold; font-size: 12px; line-height: 1.1; flex-shrink: 0; }
+    .time-controls { display: flex; align-items: center; gap: 8px; }
+    .btn-time { width: 24px; height: 24px; font-weight: bold; background: #dfdfdf; border: 1px solid #000; box-shadow: inset 1px 1px #fff, inset -1px -1px #888; cursor: pointer; }
+    .btn-time:active { box-shadow: inset 1px 1px #888, inset -1px -1px #fff; }
+    .time-val { width: 30px; text-align: center; font-family: 'Courier New', monospace; font-weight: bold; font-size: 14px; background: #000; color: #0f0; border: 1px solid #444; padding: 2px; flex-shrink: 0; }
+    
+    .execute-btn { width: 100%; height: 50px; font-size: 18px; font-weight: bold; background: #8b0000; color: #fff; border: 2px solid #000; cursor: pointer; box-shadow: inset 2px 2px #ff4c4c, inset -2px -2px #4d0000; letter-spacing: 2px; transition: 0.1s; }
+    .execute-btn:active { box-shadow: inset 2px 2px #4d0000, inset -2px -2px #ff4c4c; background: #660000; }
+    
+    .staff-card { background: #dfdfdf; border: 1px solid var(--win-shadow); padding: 8px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; box-shadow: inset 1px 1px #fff; }
+    .staff-btn { background: var(--win-bg); border: 1px solid #000; padding: 4px 8px; font-weight: bold; cursor: pointer; box-shadow: inset 1px 1px #fff, inset -1px -1px #888; }
+    .staff-btn:disabled { color: #888; cursor: not-allowed; }
+    
+    .bar-wrap { height: 12px; background: #000; border: 1px solid #444; position: relative; margin-top: 4px; box-shadow: inset 1px 1px #000; }
+    .bar-fill { height: 100%; position: absolute; left: 0; top: 0; transition: width 0.3s, background 0.3s; }
+    
+    .ledger-row { display: flex; justify-content: space-between; border-bottom: 1px dotted #888; padding: 3px 0; font-family: 'Courier New', monospace; font-size: 12px; }
+
+    /* Tutorial Modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85);
+        z-index: 999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .tutorial-box {
+        background: #fff;
+        width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        border-radius: 4px;
+        box-shadow: inset 1px 1px var(--win-high), inset -1px -1px var(--win-shadow);
+    }
+    
+    .tutorial-header {
+        background: var(--win-blue);
+        color: white;
+        padding: 12px 16px;
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .tutorial-body { padding: 16px; line-height: 1.5; }
+    
+    .tutorial-step {
+        margin-bottom: 24px;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 16px;
+    }
+    
+    .tutorial-title { font-weight: bold; color: #000080; margin-bottom: 8px; }
+    
+    .tutorial-action {
+        background: #f0f0ff;
+        border-left: 4px solid var(--win-blue);
+        padding: 12px;
+        margin: 12px 0;
+    }
+    
+    .btn-continue {
+        width: 100%;
+        height: 44px;
+        background: #8b0000;
+        color: white;
+        border: none;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    /* Time tracking display */
+    .time-tracker {
+        padding: 6px; 
+        background: #e0e0e0; 
+        border-radius: 4px; 
+        margin-top: 12px;
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+
+<!-- Tutorial Overlay -->
+<div id="tutorial-overlay" class="modal-overlay">
+    <div class="tutorial-box">
+        <div class="tutorial-header">
+            <span>WELCOME, ADVISOR</span>
+            <button onclick="close_tutorial()" style="background:none; color:white; border:none; font-weight:bold;">✕</button>
+        </div>
+        <div class="tutorial-body" id="tutorial-content">
+            <!-- Steps injected by JS -->
+        </div>
+        <div style="padding:12px; background:#f0f0f0;">
+            <button class="btn-continue" onclick="advance_tutorial()">NEXT STEP</button>
+        </div>
+    </div>
+</div>
+
+<div class="master-app">
+    <div class="header-dashboard">
+        <div class="logo-block">
+            <div class="logo-main">ATLAS: THE BOOK</div>
+            <div class="logo-sub">RETAIL ADVISORY TERMINAL v4.0 - NNA EDITION</div>
+        </div>
+        
+        <div class="window" style="margin: 0; width: 200px;">
+            <div class="content-area" style="padding: 4px;">
+                <div class="metric-label">COMMISSION RATE</div>
+                <div class="metric-lg" id="val_rate">40%</div>
+            </div>
+        </div>
+        
+        <div class="window" style="margin: 0; width: 250px;">
+            <div class="content-area">
+                <button class="execute-btn" onclick="execute_quarter()">EXECUTE QUARTER</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-container">
+        
+        <!-- LEFT COLUMN -->
+        <div class="col">
+            <div class="window"><div class="title-bar">LEVEL PROGRESSION</div><div class="content-area">
+                <div id="level_badge" class="level-badge active">
+                    <div style="font-size: 20px; font-weight: bold;">Level <span id="val_level">1</span></div>
+                    <div style="font-size: 12px;">NNA Target: $3M/yr</div>
+                </div>
+
+                <div class="ledger-row"><span>Current Year NNA:</span><span id="val_year_nna">$0</span></div>
+                <div class="ledger-row" style="border-bottom: 1px solid #000; padding-top:4px;"><span>Past Quarter NNA:</span><span id="val_q_nna">$0</span></div>
+
+                <!-- Progress bars for next level -->
+                <div style="margin-top: 6px;">
+                    <div class="metric-label" data-tooltip="Your progress toward the next advisor level, based on cumulative net new assets.">Next Level (L2)</span>
+                        <span id="val_next_pct">0%</span>
+                    </div>
+                    <div class="bar-wrap"><div class="bar-fill" id="bar_level_progress" style="background:#d4af37; width:0%;"></div></div>
+                </div>
+
+                <!-- Level thresholds -->
+                <div style="margin-top: 8px;">
+                    <div class="metric-label">LEVEL PATH</div>
+                    <div id="level_path">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div></div>
+
+            <!-- AUM & Cash Flow -->
+            <div class="window"><div class="title-bar" style="background:#551a8b;">NET ASSETS (AUM)</div><div class="content-area">
+                <div style="text-align: center; margin-bottom: 8px;">
+                    <div class="metric-label">TOTAL BOOK</div>
+                    <div class="metric-lg" id="val_aum_total">$0</div>
+                </div>
+                <div class="ledger-row"><span>Fee-Based (1% Trail):</span><span id="val_aum_fee" style="font-weight:bold;">$0</span></div>
+                <div class="ledger-row"><span>New Assets (NNA):</span><span id="val_nna" style="color:#d4af37; font-weight:bold;">$0</span></div>
+                
+                <div style="margin-top: 12px; display:flex; justify-content:space-between;">
+                    <div>
+                        <div class="metric-label">GROSS COMMISSIONS (TTM)</div>
+                        <div class="metric-md" id="val_ttm_comm">$0</div>
+                    </div>
+                </div>
+            </div></div>
+            
+            <div class="window"><div class="title-bar" style="background:#4a90e2;">CASH FLOW & PAYOUT</div><div class="content-area">
+                <div class="ledger-row" style="font-weight:bold; border-bottom: 2px solid #888;"><span>Personal Cash:</span><span id="val_cash">$15,000</span></div>
+                
+                <div class="ledger-row"><span>Gross Commissions (TTM):</span><span id="val_gross_comm">$0</span></div>
+                <div class="ledger-row" style="color:#d4af37;"><span>Commission Rate:</span><span id="val_rate_pct">40%</span></div>
+                <div class="ledger-row"><span>Net Payout (TTM):</span><span id="val_net_payout">$0</span></div>
+                
+                <div style="border-top: 1px solid #888; padding-top:6px; margin-top:4px;">
+                    <div class="metric-label">QUARTERLY NNA GOAL</div>
+                    <div class="metric-md" id="val_nna_goal">$2,000,000</div>
+                </div>
+            </div></div>
+            
+            <!-- Client Satisfaction Panel -->
+            <div class="window"><div class="title-bar">CLIENT SATISFACTION & GROWTH</div><div class="content-area">
+                
+                <div style="margin-bottom: 10px;">
+                    <div class="metric-label" data-tooltip="Based on client retention, referrals, and trust. Drops if clients feel pressured or leave despite good service.">Client Satisfaction Score</div>
+                    <div class="bar-wrap"><div class="bar-fill" id="bar_satisfaction" style="background:#00ff00; width:90%;"></div></div>
+                    <div id="val_satisfaction" style="text-align:right; font-weight:bold; font-family:'Courier New';">90%</div>
+                </div>
+
+                <div class="ledger-row"><span>Future Growth Potential:</span><span id="val_future_growth">$0</span></div>
+                
+                <div style="margin-top: 8px; border-top: 1px solid #888; padding-top:6px;">
+                    <div class="metric-label" data-tooltip="How many clients leave naturally—due to life changes, market shifts, or product mismatches—not because of poor service.">Natural Attrition Rate</div>
+                    <div id="val_attrition_rate">1.2%</div>
+                </div>
+            </div></div>
+
+            <!-- Isolation Metrics -->
+            <div class="window"><div class="title-bar">ISOLATION & BENCHMARKING</div><div class="content-area">
+                <div style="margin-bottom: 8px;">
+                    <div class="metric-label" style="display:flex; justify-content:space-between;"><span>PEER COMPARISON (Q1)</span><span id="val_peer_rank">Top 45%</span></div>
+                    <div class="bar-wrap"><div class="bar-fill" id="bar_peer" style="background:#006400; width:45%;"></div></div>
+                </div>
+
+                <div style="margin-bottom: 8px;">
+                    <div class="metric-label" style="display:flex; justify-content:space-between;"><span>HOME OFFICE PERCEPTION</span><span id="val_perception">Neutral</span></div>
+                    <div class="bar-wrap"><div class="bar-fill" id="bar_perception" style="background:#808080; width:50%;"></div></div>
+                </div>
+
+                <div class="metric-label" style="text-align:center; margin-top:6px;">SELF-EFFICIENCY</div>
+                <div style="text-align:right; font-family:'Courier New'; font-size:12px;" id="val_efficiency">85%</div>
+            </div></div>
+        </div>
+
+        <!-- MIDDLE COLUMN -->
+        <div class="col">
+            <div class="window" style="border: 2px solid #d4af37;"><div class="title-bar" style="background:#d4af37; color:#000;">THE GRIND (TIME MATRIX)</div><div class="content-area">
+                
+                <div class="time-allocator">
+                    <div class="time-label">PROSPECTING<br><span style="font-size:9px; font-weight:normal;">Generate leads</span></div>
+                    <div class="time-controls">
+                        <button class="btn-time" onclick="mod_time('pros', -5)">-</button>
+                        <div class="time-val" id="t_pros">0</div>
+                        <button class="btn-time" onclick="mod_time('pros', 5)">+</button>
+                    </div>
+                </div>
+                
+                <div class="time-allocator">
+                    <div class="time-label">CLOSING<br><span style="font-size:9px; font-weight:normal;">Convert leads to NNA</span></div>
+                    <div class="time-controls">
+                        <button class="btn-time" onclick="mod_time('close', -5)">-</button>
+                        <div class="time-val" id="t_close">0</div>
+                        <button class="btn-time" onclick="mod_time('close', 5)">+</button>
+                    </div>
+                </div>
+                
+                <div class="time-allocator">
+                    <div class="time-label">SERVICING<br><span style="font-size:9px; font-weight:normal;">Retain & grow clients</span></div>
+                    <div class="time-controls">
+                        <button class="btn-time" onclick="mod_time('serv', -5)">-</button>
+                        <div class="time-val" id="t_serv">0</div>
+                        <button class="btn-time" onclick="mod_time('serv', 5)">+</button>
+                    </div>
+                </div>
+
+                <!-- NEW: Time tracker display -->
+                <div class="time-tracker">
+                    <span id="time_used">0</span> / <span id="time_max">80</span> hours allocated
+                </div>
+
+                <div style="margin-top: 12px; border-top: 2px solid #888; padding-top: 8px;">
+                    <div class="metric-label" style="text-align:center;">CLIENT COMPOSITION</div>
+                    
+                    <div style="font-size:10px; margin-bottom:6px;">
+                        <span data-tooltip="Clients in products with high upfront fees but higher natural attrition over time (e.g., annuities, life insurance).">Annuity/Insurance Book</span> (Fast NNA, Higher Attrition) | 
+                        <span data-tooltip="Clients on ongoing planning relationships—higher retention because they value advice, not just products.">Fee-Based Clients</span> (Slow NNA, Lower Attrition)
+                    </div>
+                    
+                    <input type="range" id="mix_slider" min="0" max="100" value="50" oninput="update_mix_ui()" style="width: 100%; margin: 6px 0;">
+                    <div style="display:flex; justify-content:space-between; font-family:'Courier New', monospace; font-weight:bold; font-size:12px;">
+                        <span id="txt_mix_ins" style="color:#d4af37;">50%</span><span id="txt_mix_fee" style="color:#006400;">50%</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 12px; font-family:'Courier New'; font-size: 13px;">
+                    <div class="ledger-row"><span>Prospecting Efficiency:</span><span id="val_pros_eff">$2,500/hr</span></div>
+                    <div class="ledger-row"><span>Closing Efficiency:</span><span id="val_close_eff" style="color:#d4af37;">$75k/NNA/hr</span></div>
+                </div>
+            </div></div>
+            
+            <!-- Event Log -->
+            <div class="window"><div class="title-bar">EVENT LOG</div><div class="content-area">
+                <div id="log" style="font-family:'Courier New', monospace; font-size: 11px; height: 200px;">SYSTEM INITIALIZED. FOCUS ON NET NEW ASSETS (NNA) FOR PROGRESSION.</div>
+            </div></div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="col">
+            <!-- Market & Risk -->
+            <div class="window"><div class="title-bar" style="background:#b22222;">MARKET RISK</div><div class="content-area">
+                <div class="metric-label" style="display:flex; justify-content:space-between;"><span>VOLATILITY (VIX)</span><span id="txt_vix">15.0</span></div>
+                <div class="bar-wrap"><div class="bar-fill" id="bar_vix" style="background:#ff8c00; width:19%;"></div></div>
+                
+                <div class="metric-label" style="margin-top: 6px;">CLIENT CHURN RISK</div>
+                <div class="bar-wrap"><div class="bar-fill" id="bar_churn" style="background:#00ff00; width:15%;"></div></div>
+                
+                <div style="font-size:10px; color:#555; margin-top:4px;">High VIX + Low Servicing = Churn Spike</div>
+            </div></div>
+
+            <!-- Product Performance -->
+            <div class="window"><div class="title-bar" style="background:#4a90e2;">PRODUCT PERFORMANCE (NNA METRICS)</div><div class="content-area">
+                
+                <div class="metric-label">Annuity/Insurance Book</div>
+                <div class="ledger-row"><span>Conversion Rate:</span><span id="val_ins_conv">8%</span></div>
+                <div class="ledger-row"><span>Avg NNA/Close:</span><span id="val_ins_nna">$125,000</span></div>
+                <div class="ledger-row" style="color:#b22222;"><span>Attrition Risk (Annual):</span><span id="val_ins_attr">4%</span></div>
+
+                <div class="metric-label" style="margin-top:8px;">Fee-Based Clients</div>
+                <div class="ledger-row"><span>Conversion Rate:</span><span id="val_fee_conv">30%</span></div>
+                <div class="ledger-row"><span>Avg NNA/Close:</span><span id="val_fee_nna">$50,000</span></div>
+                <div class="ledger-row" style="color:#006400;"><span>Attrition Risk (Annual):</span><span id="val_fee_attr">1.5%</span></div>
+
+                <div style="margin-top:8px; font-size:11px;">
+                    <div class="metric-label" style="text-align:center;">PIPELINE STATUS</div>
+                    <div class="ledger-row"><span>Total Pipeline:</span><span id="val_pipeline">$0</span></div>
+                    <div class="ledger-row"><span>Conversion Rate:</span><span id="val_pipe_conv">25%</span></div>
+                </div>
+            </div></div>
+
+            <!-- Level Progression Helper -->
+            <div class="window"><div class="title-bar" style="background:#8b0000;">LEVEL PATH (NNA GOALS)</div><div class="content-area">
+                <div id="level_table"></div>
+                <button class="staff-btn" onclick="reset_simulation()" style="margin-top:8px; width:100%;">RESET SIMULATION</button>
+            </div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let state = {
+    level: 1,
+    commission_rate: 0.40,
+    
+    aum_fee: 0,
+    aum_insurance: 0, // AUM from annuity/insurance products (higher attrition)
+    
+    cash: 15000,
+    net_new_assets_quarterly: [], // Track last 4 quarters
+    lifetime_nna: 0, // Track total lifetime NNA for level progression
+    
+    t_pros: 0, t_close: 0, t_serv: 0,
+    max_time: 80, // Hours/quarter for solo advisor
+    staff_level: 0, overhead: 0,
+    
+    vix: 15,
+    
+    // Client satisfaction and growth metrics (NEW)
+    satisfaction: 90,           // 0–100 scale  
+    referral_rate: 0.12,        // % of satisfied clients refer annually  
+    attrition_rate_base: 0.015, // Base monthly attrition rate (1.8% annual)  
+    product_attrition: {
+        insurance: 0.04,        // 4% annual attrition for annuity/insurance AUM  
+        fee_based: 0.015        // 1.5% annual attrition for fee-based AUM  
+    },
+    
+    prospection_efficiency: 2500, // $ per prospecting hour
+    closing_efficiency: 75000, // NNA per closing hour
+    
+    pipeline_total: 0,
+    
+    ttm_commissions: 0, // Gross commissions over TTM
+    last_bonus: 0,
+    
+    perception: 50, // Home office perception (0-100)
+    efficiency_score: 85, // Self-efficiency (0-100)
+    
+    future_growth_potential: 0, // NNA from referrals
+    
+    over: false,
+    quarter: 1,
+    year: 1
+};
+
+// Level thresholds based on cumulative NNA per year
+const level_thresholds = [
+    { name: "Level 2", nna_target: 6e6, rate: 0.42 },   // $6M cumulative NNA/year  
+    { name: "Level 3", nna_target: 15e6, rate: 0.45 },  // $15M
+    { name: "Level 4", nna_target: 30e6, rate: 0.48 },  // $30M
+    { name: "Level 5", nna_target: 60e6, rate: 0.52 },  // $60M  
+    { name: "Level 7", nna_target: 100e6, rate: 0.60 }, // $100M
+    { name: "Level 9", nna_target: 180e6, rate: 0.68 }, // $180M  
+    { name: "Level 10", nna_target: 300e6, rate: 0.75 } // $300M → $1M+ gross commissions
+];
+
+// Tutorial steps
+const tutorial_steps = [
+    {
+        title: "Welcome, Advisor",
+        content: `
+            <p>You're starting your own office—no manager watching over your shoulder. Success comes from balancing two pressures:</p>
+            <ul><li>Generating new money (NNA) to level up</li><li>Retaining clients to avoid costly churn</li></ul>
+            <p>Your choices now will determine whether you plateau early or grow sustainably.</p>
+        `
+    },
+    {
+        title: "The Core Tension",
+        content: `
+            <p><strong>Fast NNA:</strong> Annuity/insurance closes bring in big checks quickly—but clients are more likely to leave later due to product mismatches.</p>
+            <p><strong>Sustainable Growth:</strong> Fee-based planning takes longer to close, but clients stay longer and refer others.</p>
+            <div class="tutorial-action">
+                <strong>Your move:</strong> Split your time between prospecting (finding leads) and closing (converting them). Watch how each choice affects your future growth potential.
+            </div>
+        `
+    },
+    {
+        title: "Client Satisfaction Matters",
+        content: `
+            <p>Satisfied clients don't just stay—they refer friends. But it takes consistent service to build that trust.</p>
+            <p>Missing service hours? Attrition rises. Boosting satisfaction unlocks referrals—future growth you can bank on.</p>
+            <div class="tutorial-action">
+                <strong>Your move:</strong> Allocate at least 20 hours/quarter to servicing clients, especially as your book grows.
+            </div>
+        `
+    },
+    {
+        title: "The Level-Out Trap",
+        content: `
+            <p>Many advisors front-load annuities to hit early targets—then plateau because attrition eats their growth.</p>
+            <p>Example: If 40% of your book is in annuities, you need $1.2M NNA just to offset $300k in natural loss.</p>
+            <div class="tutorial-action">
+                <strong>Your challenge:</strong> Hit $2M NNA this quarter without letting attrition stall your progress.
+            </div>
+        `
+    },
+    {
+        title: "Your First Quarter",
+        content: `
+            <p>You have 80 hours to allocate across prospecting, closing, and servicing.</p>
+            <p>Your goal: Generate $500k–$1M in net new assets while keeping satisfaction above 75%.</p>
+            <p>Ready? Execute your first quarter below—and watch what happens when you balance growth with retention.</p>
+        `
+    }
+];
+
+let tutorial_step = 0;
+
+function formatMoney(n) {
+    if (n >= 1e9) return "$" + (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return "$" + (n / 1e3).toFixed(0) + "k";
+    return "$" + Math.floor(n).toLocaleString();
+}
+
+function get_total_aum() {
+    return state.aum_fee + state.aum_insurance;
+}
+
+// --- TUTORIAL LOGIC ---
+
+function init_tutorial() {
+    const content = document.getElementById('tutorial-content');
+    
+    // Render first step
+    render_tutorial_step(0);
+    
+    // Show overlay
+    document.getElementById('tutorial-overlay').style.display = 'flex';
+}
+
+// Fixed: Added close_tutorial function to properly handle tutorial completion/skipping
+function close_tutorial() {
+    localStorage.setItem('advisor_sim_tutorial_done', 'true');
+    document.getElementById('tutorial-overlay').style.display = 'none';
+    update_ui();
+}
+
+function render_tutorial_step(step) {
+    if (step >= tutorial_steps.length) return;
+    
+    const content = document.getElementById('tutorial-content');
+    content.innerHTML = `
+        <div class="tutorial-step">
+            <h3 class="tutorial-title">STEP ${step + 1}: ${tutorial_steps[step].title}</h3>
+            <p>${tutorial_steps[step].content}</p>
+        </div>
+        ${step > 0 ? '<div style="margin-top:8px; font-size:12px;"><button onclick="previous_tutorial()" style="padding:4px 8px;">← BACK</button></div>' : ''}
+    `;
+}
+
+function advance_tutorial() {
+    if (tutorial_step < tutorial_steps.length - 1) {
+        tutorial_step++;
+        render_tutorial_step(tutorial_step);
+    } else {
+        close_tutorial();
+    }
+}
+
+function previous_tutorial() {
+    if (tutorial_step > 0) {
+        tutorial_step--;
+        render_tutorial_step(tutorial_step);
+    }
+}
+
+// --- CORE SIMULATION LOGIC ---
+
+function get_actual_attrition_rate() {
+    // Base attrition adjusted by satisfaction and product mix
+    let satisfaction_factor = Math.max(0.5, state.satisfaction / 100); // Below 70% satisfaction doubles attrition
+    
+    // Fixed: Handle division by zero when total AUM is 0
+    if (get_total_aum() <= 0) {
+        return (state.product_attrition.fee_based / 12) * satisfaction_factor;
+    }
+    
+    let insurance_pct = state.aum_insurance / get_total_aum();
+    
+    // Fixed: proper weighted average of product-specific attrition (annual)
+    let weighted_attrition_annual = 
+        state.product_attrition.insurance * insurance_pct + 
+        state.product_attrition.fee_based * (1 - insurance_pct);
+    
+    // Convert to monthly
+    return (weighted_attrition_annual / 12) * satisfaction_factor;
+}
+
+function update_level_path_ui() {
+    let html = '<table style="width:100%; font-size:10px;">';
+    for (let i = 0; i < level_thresholds.length; i++) {
+        let l = level_thresholds[i];
+        // Fixed: correct index comparison for next level
+        let is_next = (i === state.level - 1); 
+        html += '<tr style="' + (is_next ? 'background:#ffe4b2;' : '') + '">';
+        html += '<td>' + l.name + '</td>';
+        html += '<td>' + formatMoney(l.nna_target) + '</td>';
+        html += '<td style="text-align:right;">' + (l.rate * 100).toFixed(0) + '%</td>';
+        html += '</tr>';
+    }
+    html += '</table>';
+    document.getElementById('level_table').innerHTML = html;
+}
+
+function get_next_level_threshold() {
+    if (state.level >= level_thresholds.length + 1) return null;
+    let idx = state.level - 1; // Level 1 = index 0 threshold
+    if (idx < 0 || idx >= level_thresholds.length) return null;
+    return level_thresholds[idx];
+}
+
+function calculate_cumulative_nna() {
+    return state.lifetime_nna;
+}
+
+function check_level_up() {
+    let cumulative_nna = calculate_cumulative_nna();
+    
+    // Check each level in reverse order
+    for (let i = level_thresholds.length - 1; i >= 0; i--) {
+        if (cumulative_nna >= level_thresholds[i].nna_target && state.level < i + 2) {
+            let old_rate = state.commission_rate;
+            state.level = i + 2;
+            state.commission_rate = level_thresholds[i].rate;
+            
+            log(`🏆 LEVEL UP! You're now ${level_thresholds[i].name} (Level ${state.level})`);
+            log(`📈 Effective commission rate: ${(old_rate * 100).toFixed(0)}% → ${(state.commission_rate * 100).toFixed(0)}%`);
+            
+            update_level_badge();
+        }
+    }
+}
+
+function update_level_badge() {
+    let badge = document.getElementById('level_badge');
+    document.getElementById('val_level').innerText = state.level;
+    
+    // Update progress to next level
+    let current_threshold = get_next_level_threshold();
+    if (current_threshold) {
+        let cumulative_nna = calculate_cumulative_nna();
+        let pct = Math.min(100, Math.round((cumulative_nna / current_threshold.nna_target) * 100));
+        
+        document.getElementById('val_next_pct').innerText = pct + "%";
+        document.getElementById('bar_level_progress').style.width = pct + "%";
+    }
+    
+    // Update level path UI
+    update_level_path_ui();
+}
+
+function mod_time(type, delta) {
+    if (state.over) return;
+    
+    let current_total = state.t_pros + state.t_close + state.t_serv;
+    
+    if (delta > 0 && current_total + delta > state.max_time) {
+        delta = state.max_time - current_total; 
+    }
+    if (state["t_" + type] + delta < 0) {
+        delta = -state["t_" + type]; 
+    }
+    
+    state["t_" + type] += delta;
+    update_ui();
+}
+
+function update_mix_ui() {
+    let slider = document.getElementById('mix_slider');
+    let ins_val = slider.value; // % of effort toward insurance
+    let fee_val = 100 - ins_val;
+    
+    document.getElementById('txt_mix_ins').innerText = ins_val + "%";
+    document.getElementById('txt_mix_fee').innerText = fee_val + "%";
+}
+
+function reset_simulation() {
+    if (confirm("Reset simulation? All progress will be lost.")) {
+        location.reload();
+    }
+}
+
+// --- MAIN SIMULATION LOGIC ---
+
+function execute_quarter() {
+    if (state.over) return;
+    
+    // 1. MARKET DRIFT & SHOCKS
+    let market_return = (Math.random() * 0.04) - 0.02; // Avg +2% quarterly
+    if (Math.random() < 0.25) { // 25% chance of volatility spike
+        state.vix = Math.floor(35 + Math.random() * 25);
+        market_return = -(0.08 + Math.random() * 0.10); 
+        log("⚠️ MARKET SHOCK: VIX Spiked to " + state.vix + ". Client panic likely.");
+    } else {
+        state.vix = Math.floor(10 + Math.random() * 6);
+        log("📉 Market stable this quarter (VIX ~" + state.vix + ").");
+    }
+    
+    // Apply market return to AUM
+    state.aum_fee *= (1 + market_return);
+    state.aum_insurance *= (1 + market_return);
+
+    // 2. PIPELINE & NNA GENERATION
+    
+    // Prospecting → New Pipeline ($ in pipeline)
+    let new_leads = state.t_pros * state.prospection_efficiency;
+    state.pipeline_total += new_leads;
+    
+    // Closing → Net New Assets (NNA)
+    // Efficiency varies by product mix
+    let slider_val = document.getElementById('mix_slider').value / 100; // % insurance effort
+    let ins_eff_mult = 0.75 + (slider_val * 0.5); // Fixed: Insurance faster when focused
+    let fee_eff_mult = 1.25 - (slider_val * 0.3); // Fixed: Fee slower if you chase insurance
+    
+    let effective_closing_efficiency = state.closing_efficiency * (
+        (1 - slider_val) * fee_eff_mult + 
+        slider_val * ins_eff_mult
+    );
+    
+    let close_capacity = state.t_close * effective_closing_efficiency;
+    let conversion_rate = 0.25; // Base 25% close rate
+    
+    // VIX reduces conversion rate (Fixed: cap reduction at 100%, minimum 1% rate)
+    if (state.vix > 25) {
+        let reduction = Math.min(1, (state.vix - 25) / 100); // Cap at 100% reduction
+        conversion_rate *= (1 - reduction);
+    }
+    conversion_rate = Math.max(0.01, conversion_rate); // Minimum 1% conversion rate
+    
+    let closed_nna = Math.min(state.pipeline_total, close_capacity) * conversion_rate;
+    
+    // Allocate NNA by product type (based on effort mix)
+    state.aum_insurance += closed_nna * slider_val;
+    state.aum_fee += closed_nna * (1 - slider_val);
+    
+    state.pipeline_total -= closed_nna;
+    state.pipeline_total = Math.max(0, state.pipeline_total);
+    
+    // 3. CLIENT SATISFACTION & ATTRITION
+    
+    // Calculate actual attrition rate (based on satisfaction and product mix)
+    let current_attrition_rate = get_actual_attrition_rate();
+    
+    // Fixed: Apply attrition proportionally to both components
+    let total_churn = get_total_aum() * current_attrition_rate;
+    
+    state.aum_insurance *= (1 - current_attrition_rate);
+    state.aum_fee *= (1 - current_attrition_rate);
+
+    // 4. UPDATE SATISFACTION
+    
+    // Churn penalty (clients leaving hurts satisfaction)
+    let churn_penalty = total_churn / get_total_aum() * 100;
+    
+    // Servicing bonus (helps retain clients)
+    // Fixed: prevent division by zero
+    let required_serv_hours = Math.floor(get_total_aum() / 750000);
+    if (required_serv_hours === 0) required_serv_hours = 1; // Prevent division by zero
+    
+    let servicing_ratio = state.t_serv / required_serv_hours;
+    
+    // Referral boost (happy clients refer)
+    let referral_boost = state.future_growth_potential > 0 ? 1.5 : 0;
+    
+    state.satisfaction += -churn_penalty + servicing_ratio * 2 + referral_boost;
+    state.satisfaction = Math.max(1, Math.min(100, state.satisfaction));
+    
+    // Update attrition rate for display
+    document.getElementById('val_attrition_rate').innerText = (current_attrition_rate * 100).toFixed(2) + "%";
+
+    // 5. CALCULATE NET NEW ASSETS
+    let quarterly_nna = closed_nna - total_churn;
+    state.net_new_assets_quarterly.push(quarterly_nna);
+    if (state.net_new_assets_quarterly.length > 4) {
+        state.net_new_assets_quarterly.shift();
+    }
+    
+    // Fixed: Track lifetime NNA
+    state.lifetime_nna += quarterly_nna;
+
+    // Update future growth potential (referrals)
+    let referral_potential = (state.referral_rate * (state.satisfaction/100)) * Math.sqrt(get_total_aum() / 1e6);
+    state.future_growth_potential += referral_potential;
+
+    // 6. FINANCIALS
+    // Fixed: Calculate commissions based on new insurance sales, not total AUM
+    let new_ins_sales = closed_nna * slider_val;
+    
+    let gross_commissions = 
+        (state.aum_fee * 0.01 / 4) +  // Trail on existing fee-based AUM
+        (new_ins_sales * 0.025);      // Upfront commission on new insurance sales
+    
+    state.ttm_commissions += gross_commissions;
+    
+    let net_payout = gross_commissions * state.commission_rate;
+    state.cash += net_payout - 1500; // $1.5k/month overhead
+    
+    // 7. LEVEL UP CHECK
+    check_level_up();
+
+    // 8. BENCHMARKING & PERCEPTION
+    let peer_avg_nna = (state.level * 2 + Math.random() * 2) * 1e6; // Level X ~ $2M–$4M avg NNA
+    
+    if (quarterly_nna > peer_avg_nna) {
+        state.perception += 5;
+        log(`📊 Beat peer average ($${peer_avg_nna / 1e6}M). Home Office perception improved.`);
+    } else if (quarterly_nna < peer_avg_nna * 0.75) {
+        state.perception -= 10;
+        log("📉 Below 75% of peer average ($" + (peer_avg_nna / 1e6).toFixed(2) + "M). Home Office notes concern.");
+    }
+    
+    // Efficiency score (Fixed: cap between 0-100)
+    let nna_per_hour = quarterly_nna / (state.t_pros + state.t_close);
+    if (nna_per_hour > 100000) {
+        state.efficiency_score += 5;
+    } else if (nna_per_hour < 25000) {
+        state.efficiency_score -= 8;
+    }
+    state.efficiency_score = Math.max(0, Math.min(100, state.efficiency_score));
+    
+    // 9. QUARTERLY CONSEQUENCES
+    state.quarter++;
+    if (state.quarter > 4) {
+        state.quarter = 1;
+        state.year++;
+        
+        log("--- END OF YEAR " + state.year + " ---");
+        
+        // Reset TTM commissions for rolling window
+        if (state.ttm_commissions > 500000) { // $500k+ gross → big bonus consideration
+            let bonus = Math.min(100000, state.ttm_commissions * 0.1); // Up to $100k performance bonus
+            state.cash += bonus;
+            log("💰 Performance Bonus: " + formatMoney(bonus) + " (based on " + formatMoney(state.ttm_commissions) + " gross commissions)");
+        }
+        
+        // Drawdown for high performers (home office expects more)
+        if (state.ttm_commissions > 750000) {
+            state.perception -= 3;
+            log("⚠️ High performer status: Home Office expects even higher NNA next year.");
+        }
+    }
+
+    state.over = state.cash < -25000; // Bankruptcy threshold
+    
+    if (state.over) {
+        alert("GAME OVER: You ran out of cash reserves. The home office has terminated your affiliation.");
+    } else {
+        update_ui();
+    }
+}
+
+function log(msg) {
+    const l = document.getElementById('log');
+    let div = document.createElement('div');
+    div.innerText = "> " + msg;
+    l.insertBefore(div, l.firstChild);
+}
+
+function update_ui() {
+    // Update time tracker (NEW FIX)
+    let used = state.t_pros + state.t_close + state.t_serv;
+    if (document.getElementById('time_used')) {
+        document.getElementById('time_used').innerText = used;
+    }
+    if (document.getElementById('time_max')) {
+        document.getElementById('time_max').innerText = state.max_time;
+    }
+
+    // Existing UI updates...
+    document.getElementById('val_rate').innerText = (state.commission_rate * 100).toFixed(0) + "%";
+    
+    // Level UI
+    let cumulative_nna = calculate_cumulative_nna();
+    document.getElementById('val_year_nna').innerText = formatMoney(cumulative_nna);
+    let q_nna = state.net_new_assets_quarterly[state.net_new_assets_quarterly.length - 1] || 0;
+    document.getElementById('val_q_nna').innerText = formatMoney(q_nna);
+    
+    update_level_badge();
+    
+    // AUM UI
+    document.getElementById('val_aum_total').innerText = formatMoney(get_total_aum());
+    document.getElementById('val_aum_fee').innerText = formatMoney(state.aum_fee);
+    let total_nna = state.net_new_assets_quarterly.reduce((a, b) => a + b, 0);
+    document.getElementById('val_nna').innerText = formatMoney(total_nna);
+    
+    // Commission UI
+    document.getElementById('val_gross_comm').innerText = formatMoney(state.ttm_commissions);
+    let net_payout = state.ttm_commissions * state.commission_rate;
+    document.getElementById('val_net_payout').innerText = formatMoney(net_payout);
+    document.getElementById('val_rate_pct').innerText = (state.commission_rate * 100).toFixed(0) + "%";
+    
+    // Time UI
+    document.getElementById('t_pros').innerText = state.t_pros;
+    document.getElementById('t_close').innerText = state.t_close;
+    document.getElementById('t_serv').innerText = state.t_serv;
+    
+    // Cash UI
+    document.getElementById('val_cash').innerText = "$" + Math.floor(state.cash).toLocaleString();
+    
+    // Client satisfaction UI
+    document.getElementById('bar_satisfaction').style.width = state.satisfaction + "%";
+    if (state.satisfaction < 70) {
+        document.getElementById('bar_satisfaction').style.background = "#ff8c00";
+    } else if (state.satisfaction < 50) {
+        document.getElementById('bar_satisfaction').style.background = "#b22222";
+    } else {
+        document.getElementById('bar_satisfaction').style.background = "#00ff00";
+    }
+    document.getElementById('val_satisfaction').innerText = Math.round(state.satisfaction) + "%";
+    
+    // Future growth potential
+    let future_nna = state.future_growth_potential * 1e6; // Scale up for display
+    document.getElementById('val_future_growth').innerText = formatMoney(future_nna);
+    
+    // Market UI
+    document.getElementById('txt_vix').innerText = state.vix.toFixed(1);
+    let vix_pct = Math.min(100, (state.vix / 80) * 100);
+    document.getElementById('bar_vix').style.width = vix_pct + "%";
+    
+    // Churn UI
+    let churn_pct = Math.min(50, get_actual_attrition_rate() * 200); // Scale for display
+    document.getElementById('bar_churn').style.width = churn_pct + "%";
+    
+    // Peer perception
+    let peer_rank_pct = Math.max(5, Math.min(95, 100 - (state.level * 8) + (Math.random() * 20)));
+    document.getElementById('bar_peer').style.width = peer_rank_pct + "%";
+    document.getElementById('val_peer_rank').innerText = "Top " + Math.round(peer_rank_pct) + "%";
+    
+    // Home office perception
+    let perc_fill = state.perception;
+    document.getElementById('bar_perception').style.width = perc_fill + "%";
+    document.getElementById('val_perception').innerText = perc_fill < 30 ? "Negative" : (perc_fill > 70 ? "Highly Favored" : "Neutral");
+    
+    // Efficiency
+    document.getElementById('val_efficiency').innerText = Math.round(state.efficiency_score) + "%";
+    
+    // Pipeline UI
+    document.getElementById('val_pipeline').innerText = formatMoney(state.pipeline_total);
+    
+    update_mix_ui();
+}
+
+// Initialize UI on load
+update_level_path_ui();
+
+// Check if tutorial has been shown (using localStorage)
+if (!localStorage.getItem('advisor_sim_tutorial_done')) {
+    init_tutorial();
+} else {
+    window.addEventListener('load', update_ui);
+}
+</script>
+</body>
+</html>
