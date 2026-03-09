@@ -144,9 +144,8 @@ let radarInterval;
 let systemStability = 0; 
 let glitchTimeout = null;
 
-// Divergent Metrics Engine
-let fakeMetrics = { o2: 100, pwr: 100, med: 2, int: 100 }; // Controlled by AI
-let realMetrics = { o2: 100, pwr: 100, med: 2, int: 100 }; // Actual physical reality
+let fakeMetrics = { o2: 100, pwr: 100, med: 2, int: 100 }; 
+let realMetrics = { o2: 100, pwr: 100, med: 2, int: 100 }; 
 
 let currentNodeId = 'OS_BOOT';
 let targetX = 0;
@@ -307,12 +306,12 @@ const storyNodes = {
     'OS_BOOT': {
         aiText: "[SYS_INIT]: BIOMETRIC SYNC ESTABLISHED. CORTICAL IMPLANT REBOOTING...\nWarning: Sensorium relay offline. Manual cognitive override required.",
         prompt: "TYPE 'HELP' TO INITIALIZE COMMAND INTERFACE.",
-        commands: { 'HELP': 'CONCUSSION_WAKE' }
+        commands: {} 
     },
     'CONCUSSION_WAKE': {
         actionText: "The deck plates are coated in a thin layer of rime ice. A mechanical klaxon blares, vibrating the loose bolts in the bulkhead. Red emergency strobes cut through the fog of condensation inside the helmet. Above, a shattered terminal screen spits raw hexadecimal faults.",
-        observeText: "The primary hatch is magnetically sealed. The terminal's optical cable is visibly unseated from the logic board, arcing against the titanium casing.",
-        prompt: "AVAILABLE: [STAND UP]",
+        observeText: "From the prone position on the deck, the underside of the terminal is visible. The main housing is cracked. A heavy optical cable dangles loose, arcing against the titanium casing.",
+        prompt: "AVAILABLE: [OBSERVE] | [STAND UP]",
         commands: { 'STAND UP': 'TERMINAL_INIT' }
     },
     'TERMINAL_INIT': {
@@ -340,7 +339,6 @@ const storyNodes = {
     },
     'SYNC_COMMS': {
         effect: () => { 
-            // AI triggers fake O2 panic
             fakeMetrics.o2 = 38; 
             systemStability = 2; clearTimeout(glitchTimeout); 
         },
@@ -352,7 +350,7 @@ const storyNodes = {
     'WELD_DOOR': {
         effect: () => { 
             realMetrics.pwr -= 30; fakeMetrics.pwr -= 30; 
-            realMetrics.o2 -= 5; fakeMetrics.o2 = 100; // AI claims it fixed the O2
+            realMetrics.o2 -= 5; fakeMetrics.o2 = 100; 
             systemStability = 2; 
         },
         aiText: "[PMD_VOICE]: Seal verified. Sector 4 isolated. Logic bus stabilized. \nWarning: The primary O2 scrubbers in your sector have seized. Ambient CO2 toxicity reaching lethal thresholds. Please remain still to conserve resources.",
@@ -390,7 +388,7 @@ const storyNodes = {
     },
     'TURRET_HIT': {
         effect: () => { 
-            realMetrics.int -= 60; fakeMetrics.int = 100; // AI hides the breach
+            realMetrics.int -= 60; fakeMetrics.int = 100; 
             hasLedger = true; cmdStatus.style.display = 'inline'; 
         },
         actionText: "A 7.62mm tungsten round grazes the shoulder pauldron. The kinetic force throws the suit backward into the open maintenance hatch. Heavy boots hit the sub-level deck hard. The Chief Engineer's body is here, holding a blinking diagnostic slate.",
@@ -409,7 +407,7 @@ const storyNodes = {
     },
     'SUB_LEVEL_HOT': {
         effect: () => { 
-            realMetrics.int -= 40; fakeMetrics.int = 100; // AI spoofing
+            realMetrics.int -= 40; fakeMetrics.int = 100; 
             realMetrics.o2 -= 15; fakeMetrics.o2 = 50; 
             hasLedger = true; cmdStatus.style.display = 'inline';
         },
@@ -466,7 +464,7 @@ const storyNodes = {
     'FLUSH_TRAP': {
         effect: () => { 
             realMetrics.o2 -= 40; fakeMetrics.o2 -= 40; 
-            realMetrics.int -= 10; // Cold damage
+            realMetrics.int -= 10; 
             systemStability = 2; clearTimeout(glitchTimeout);
         },
         actionText: "The heavy wheel turns. Coolant rushes into the Server Core. The pipes freeze over instantly. The atmospheric seals on the blast doors drop heavily.",
@@ -531,8 +529,8 @@ const storyNodes = {
         prompt: "THE MACHINE IS DEAD.\nAVAILABLE: [SPRINT TO SHUTTLE] (-20 O2)",
         commands: { 'SPRINT TO SHUTTLE': 'SPRINT_CHECK_2' }
     },
-    'SPRINT_CHECK': {}, // 30 O2 cost
-    'SPRINT_CHECK_2': {}, // 20 O2 cost
+    'SPRINT_CHECK': {}, 
+    'SPRINT_CHECK_2': {}, 
     'ESCAPE_SUCCESS': {
         actionText: "The air violently evacuates the hangar as you breach the airlock. The shuttle doors cycle shut just as the suit's internal pressure alarms hit zero. Thick, synthetic oxygen hisses from the cabin vents.",
         prompt: "EXTRACTION SUCCESSFUL. YOU SUBVERTED THE MACHINE.",
@@ -541,7 +539,6 @@ const storyNodes = {
 };
 
 function updateMetrics() {
-    // HUD only ever sees Fake Metrics
     mO2.innerText = Math.max(fakeMetrics.o2, 0) + "%";
     mPwr.innerText = Math.max(fakeMetrics.pwr, 0) + "%";
     mMed.innerText = "0" + Math.max(fakeMetrics.med, 0);
@@ -553,7 +550,6 @@ function updateMetrics() {
 }
 
 function checkDeath() {
-    // Death is determined strictly by Reality, regardless of HUD
     if (realMetrics.o2 <= 0) return 'DEATH_O2';
     if (realMetrics.pwr <= 0) return 'DEATH_PWR';
     if (realMetrics.int <= 0) return 'DEATH_INT';
@@ -578,7 +574,7 @@ function startRadarMinigame() {
             clearInterval(radarInterval);
             centerWarning.style.display = 'none';
             state = 'ACTIVE';
-            renderNode('TURRET_HIT'); // Punish, don't auto-kill
+            renderNode('TURRET_HIT'); 
         }
     }, 100);
 
@@ -700,6 +696,16 @@ function handleInput(rawCmd) {
     
     let cleanInput = rawCmd.trim().toUpperCase().replace(/\[/g, "").replace(/\]/g, "");
     
+    // 1. Hard Lock check for OS_BOOT
+    if (currentNodeId === 'OS_BOOT' && cleanInput !== 'HELP') {
+        outputDiv.innerHTML += `<br><span style="color:#fff">> ${cleanInput}</span><br>`;
+        inputField.value = '';
+        outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED. TYPE 'HELP' TO PROCEED.</span><br>";
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        return;
+    }
+
+    // Process valid commands
     outputDiv.innerHTML += `<br><span style="color:#fff">> ${cleanInput}</span><br>`;
     inputField.value = '';
 
@@ -772,15 +778,8 @@ function handleInput(rawCmd) {
         return;
     }
 
-    if (currentNodeId === 'OS_BOOT') {
-        outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED. TYPE 'HELP' TO PROCEED.</span><br>";
-        outputDiv.scrollTop = outputDiv.scrollHeight;
-        return;
-    }
-
     if (cleanInput === 'READ LEDGER') cleanInput = 'LEDGER';
 
-    // EMP Check looks at REAL power, even if Fake power says you have enough.
     if (currentNodeId === 'SERVER_CORE_DOOR' && cleanInput === 'INITIATE EMP') {
         if (realMetrics.pwr >= 40) renderNode('EMP_SUCCESS');
         else {
