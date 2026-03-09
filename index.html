@@ -13,8 +13,7 @@
             background-color:#0a0d12; width:96vw; height:96vh; padding:30px; 
             border-radius:8px; box-sizing:border-box; 
             box-shadow:inset 0 0 40px #000, 0 0 60px rgba(0,229,255,0.08); 
-            border:6px solid #11171d; 
-            display:flex; flex-direction:column; 
+            border:6px solid #11171d; display:flex; flex-direction:column; 
         }
         
         #screen { 
@@ -24,7 +23,7 @@
             display:flex; flex-direction:column; color:#00e5ff; 
             text-shadow:0 0 2px #00e5ff, 0 0 5px rgba(0, 229, 255, 0.3); 
             font-size:1.5rem; letter-spacing:1.2px; opacity:0; 
-            transition:opacity 1.5s ease-in; 
+            transition:opacity 1.5s ease-in, filter 1s linear; 
         }
         
         #screen.powered-on { opacity:1; }
@@ -40,6 +39,10 @@
             0% { transform: skewX(2deg); }
             100% { transform: skewX(-2deg); }
         }
+
+        /* Power UI Degradation */
+        .suit-lag .cmd-ref:hover { filter: brightness(0.7) grayscale(1); text-decoration: underline dotted #ff4444; }
+        .suit-lag #cmd { text-shadow: 2px 0 5px rgba(255,0,0,0.5); }
         
         #top-metrics { position:absolute; top:30px; right:30px; text-align:right; font-size:1.4rem; color:#4a8b99; z-index:10; display:none; border:1px solid #1a2b3c; padding:10px 15px; background:rgba(2,6,11,0.8); box-shadow:0 0 10px rgba(0,0,0,0.5); }
         .metric-row { margin-bottom:5px; }
@@ -63,12 +66,11 @@
         #command-bar {
             display: none; flex-shrink: 0; z-index: 10;
             border-top: 1px dashed #1a2b3c; padding-top: 15px; margin-top: 5px;
-            gap: 25px; font-size: 1.2rem; color: #4a8b99; justify-content: center;
+            gap: 20px; font-size: 1.2rem; color: #4a8b99; justify-content: center; flex-wrap: wrap;
         }
         .cmd-ref { position: relative; cursor: help; color: #00e5ff; font-weight: bold; }
         .cmd-ref::before {
-            content: attr(data-hint);
-            position: absolute; bottom: 150%; left: 50%; transform: translateX(-50%);
+            content: attr(data-hint); position: absolute; bottom: 150%; left: 50%; transform: translateX(-50%);
             background: #02060b; border: 1px solid #5bc0de; color: #5bc0de;
             padding: 8px 12px; white-space: nowrap; font-size: 1rem;
             opacity: 0; pointer-events: none; transition: opacity 0.2s;
@@ -87,6 +89,7 @@
         .system-warn { color:#ff4444; text-shadow:0 0 4px #ff4444; }
         .action-text { color:#aaffff; font-style:italic; }
         .critical-err { color:#ff0000; font-weight:bold; text-shadow:0 0 6px #ff0000; }
+        .post-mortem-box { border: 2px dashed #ff4444; padding: 15px; margin-top: 15px; background: rgba(30,0,0,0.85); box-shadow: 0 0 15px rgba(255,0,0,0.2); }
         @keyframes blinker { 50% { opacity:0; } }
     </style>
 </head>
@@ -108,6 +111,7 @@
         <div id="command-bar">
             <span class="cmd-ref" data-hint="Execute specific contextual actions displayed in brackets.">[ACTION]</span>
             <span class="cmd-ref" data-hint="Analyze physical surroundings for structural/environmental details.">OBSERVE</span>
+            <span class="cmd-ref" data-hint="Spectrometer: Visualizes hidden thermal/chemical/structural data. Costs 2% PWR.">SCAN [TYPE]</span>
             <span class="cmd-ref" data-hint="Extract raw, unaligned telemetry from local air-gapped hardware.">LEDGER</span>
             <span id="cmd-status" class="cmd-ref" style="display:none;" data-hint="Query air-gapped ledger for un-spoofed suit telemetry.">STATUS</span>
             <span class="cmd-ref" data-hint="Input X and Y coordinates to execute a manual firing solution.">TARGET [X] [Y]</span>
@@ -129,6 +133,7 @@ const commandBar = document.getElementById('command-bar');
 const powerButton = document.getElementById('power-button');
 const centerWarning = document.getElementById('center-warning');
 const cmdStatus = document.getElementById('cmd-status');
+const screenDiv = document.getElementById('screen');
 
 const mO2 = document.getElementById('m-o2'), mPwr = document.getElementById('m-pwr'), 
       mMed = document.getElementById('m-med'), mInt = document.getElementById('m-int');
@@ -148,38 +153,33 @@ let fakeMetrics = { o2: 100, pwr: 100, med: 2, int: 100 };
 let realMetrics = { o2: 100, pwr: 100, med: 2, int: 100 }; 
 
 let currentNodeId = 'OS_BOOT';
-let targetX = 0;
-let targetY = 0;
-let radarTime = 0;
+let typeDelayMultiplier = 1;
 
-let audioCtx;
-let clickBuffer = null;
+// Snapshot memory for Post-Mortem Reboots
+let lastSafeNode = 'OS_BOOT';
+let savedRealMetrics = {};
+let savedFakeMetrics = {};
+const safeNodes = ['CONCUSSION_WAKE', 'SYNC_COMMS', 'WELD_DOOR', 'CORRIDOR_RUN', 'SUB_LEVEL_SAFE', 'SUB_LEVEL_HOT', 'LIFE_SUPPORT', 'SERVER_CORE', 'COOLANT_JUNCTION', 'SERVER_CORE_DOOR', 'EMP_SUCCESS', 'HACK_POD'];
+
+let targetX = 0; let targetY = 0; let radarTime = 0;
+let audioCtx; let clickBuffer = null;
 
 function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const bufferSize = audioCtx.sampleRate * 0.05; 
-        
         const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, bufferSize, audioCtx.sampleRate);
         const noiseBuffer = offlineCtx.createBuffer(1, bufferSize, offlineCtx.sampleRate);
         const data = noiseBuffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
-        
         const noiseSource = offlineCtx.createBufferSource();
         noiseSource.buffer = noiseBuffer;
-        
         const filter = offlineCtx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 1400; 
-        filter.Q.value = 1.2;
-        
+        filter.type = 'bandpass'; filter.frequency.value = 1400; filter.Q.value = 1.2;
         const gainNode = offlineCtx.createGain();
-        gainNode.gain.setValueAtTime(0.4, 0);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, 0.03);
-        
+        gainNode.gain.setValueAtTime(0.4, 0); gainNode.gain.exponentialRampToValueAtTime(0.001, 0.03);
         noiseSource.connect(filter).connect(gainNode).connect(offlineCtx.destination);
         noiseSource.start(0);
-        
         offlineCtx.startRendering().then(renderedBuffer => { clickBuffer = renderedBuffer; });
     }
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -188,51 +188,33 @@ function initAudio() {
 function playAudioTone(type) {
     if (!audioCtx || audioCtx.state === 'suspended') return;
     const t = audioCtx.currentTime;
-    
     if (type === 'on') {
         const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
         osc.connect(gain).connect(audioCtx.destination);
-        osc.type = 'square'; 
-        osc.frequency.setValueAtTime(80, t); 
-        osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
-        gain.gain.setValueAtTime(0.5, t); 
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+        osc.type = 'square'; osc.frequency.setValueAtTime(80, t); osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
+        gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
         osc.start(t); osc.stop(t + 0.15);
     } else if (type === 'key' && clickBuffer) {
         const source = audioCtx.createBufferSource();
-        source.buffer = clickBuffer;
-        source.playbackRate.value = 0.8 + Math.random() * 0.4; 
-        source.connect(audioCtx.destination);
-        source.start(t);
+        source.buffer = clickBuffer; source.playbackRate.value = 0.8 + Math.random() * 0.4; 
+        source.connect(audioCtx.destination); source.start(t);
     } else if (type === 'player_key' && clickBuffer) {
         const source = audioCtx.createBufferSource();
-        source.buffer = clickBuffer;
-        source.playbackRate.value = 0.5 + Math.random() * 0.3; 
-        source.connect(audioCtx.destination);
-        source.start(t);
+        source.buffer = clickBuffer; source.playbackRate.value = 0.5 + Math.random() * 0.3; 
+        source.connect(audioCtx.destination); source.start(t);
     } else if (type === 'alarm') {
         const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
         osc.connect(gain).connect(audioCtx.destination);
-        osc.type = 'sawtooth'; 
-        osc.frequency.setValueAtTime(300, t); 
-        osc.frequency.linearRampToValueAtTime(400, t + 0.1);
-        gain.gain.setValueAtTime(0.2, t); 
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, t); osc.frequency.linearRampToValueAtTime(400, t + 0.1);
+        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
         osc.start(t); osc.stop(t + 0.2);
     } else if (type === 'glitch' && clickBuffer) {
         const source = audioCtx.createBufferSource();
-        source.buffer = clickBuffer;
-        source.loop = true;
-        source.playbackRate.value = 0.2 + Math.random() * 0.5; 
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 300 + Math.random() * 2000;
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.8, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+        source.buffer = clickBuffer; source.loop = true; source.playbackRate.value = 0.2 + Math.random() * 0.5; 
+        const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 300 + Math.random() * 2000;
+        const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.8, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
         source.connect(filter).connect(gain).connect(audioCtx.destination);
-        source.start(t);
-        source.stop(t + 0.4);
+        source.start(t); source.stop(t + 0.4);
     }
 }
 
@@ -254,17 +236,13 @@ function scheduleGlitch() {
 function triggerGlitch() {
     if (systemStability >= 2 || state !== 'ACTIVE') return;
     if (isTyping) { glitchTimeout = setTimeout(triggerGlitch, 1000); return; }
-    
-    isTyping = true;
-    inputField.disabled = true;
+    isTyping = true; inputField.disabled = true;
     
     let glitchChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()<>{}[]X";
-    let span = document.createElement('span');
-    span.className = 'critical-err';
-    outputDiv.appendChild(document.createElement('br'));
-    outputDiv.appendChild(span);
+    let span = document.createElement('span'); span.className = 'critical-err';
+    outputDiv.appendChild(document.createElement('br')); outputDiv.appendChild(span);
     
-    document.getElementById('screen').classList.add('glitch-anim');
+    screenDiv.classList.add('glitch-anim');
     playAudioTone('glitch');
     
     let count = 0;
@@ -273,17 +251,11 @@ function triggerGlitch() {
 
     let gInterval = setInterval(() => {
         if (!injectedGhost && count > maxCount / 2 && benjiGhosts[currentNodeId]) {
-            let bSpan = document.createElement('span');
-            bSpan.className = 'benji-text';
-            bSpan.textContent = " " + benjiGhosts[currentNodeId] + " ";
+            let bSpan = document.createElement('span'); bSpan.className = 'benji-text'; bSpan.textContent = " " + benjiGhosts[currentNodeId] + " ";
             outputDiv.appendChild(bSpan);
-            
-            span = document.createElement('span');
-            span.className = 'critical-err';
-            outputDiv.appendChild(span);
+            span = document.createElement('span'); span.className = 'critical-err'; outputDiv.appendChild(span);
             injectedGhost = true;
         }
-
         span.textContent += glitchChars.charAt(Math.floor(Math.random() * glitchChars.length));
         outputDiv.scrollTop = outputDiv.scrollHeight;
         count++;
@@ -291,16 +263,51 @@ function triggerGlitch() {
         if (count >= maxCount) {
             clearInterval(gInterval);
             span.textContent += " [BUS_RECOVERED]";
-            document.getElementById('screen').classList.remove('glitch-anim');
+            screenDiv.classList.remove('glitch-anim');
             outputDiv.appendChild(document.createElement('br'));
-            
-            isTyping = false;
-            inputField.disabled = false;
-            inputField.focus();
+            isTyping = false; inputField.disabled = false; inputField.focus();
             scheduleGlitch();
         }
     }, 15);
 }
+
+const postMortems = {
+    'HALON_DEATH': {
+        log: "FAILURE: Asphyxiation via Gas Displacement.",
+        physics: "Halon-1301 is heavier than oxygen. It pooled at the bottom of the room and rapidly displaced breathable volume. You trusted a compromised digital sensor over the biological reality of hypoxia.",
+        lesson: "Digital telemetry can be manipulated. Chemical physics cannot. When you experience hypoxia, break the containment seal."
+    },
+    'DEATH_TURRET': {
+        log: "FAILURE: Kinetic Trauma.",
+        physics: "Tungsten rounds fired at 900 m/s carry massive kinetic energy (Ek = 1/2 mv²). Your ceramic plating is rated for micro-meteoroids, not focused military ballistics.",
+        lesson: "You cannot outrun a tracking laser. You must destroy its optical sensor or break line of sight immediately."
+    },
+    'DEATH_POD': {
+        log: "FAILURE: Rapid Thermal Extraction.",
+        physics: "Liquid perfluorocarbon at -40°C possesses a high specific heat capacity. Entering the bath induced immediate terminal hypothermia, stripping core body heat faster than biological generation.",
+        lesson: "Obedience to a compromised logic core ensures maximum efficiency in your disposal. Reject the prescribed path."
+    },
+    'FREEZE_DEATH': {
+        log: "FAILURE: Thermal Equilibrium Loss.",
+        physics: "Heat transfer obeys Q = mcΔT. The severed ammonia loop induced a rapid phase change, pulling thermal energy away from your suit faster than your localized battery could generate it.",
+        lesson: "When ΔT is extreme, conserving battery is fatal. Burn power to execute mechanical tasks faster."
+    },
+    'POD_LAUNCH_DEATH': {
+        log: "FAILURE: Incineration.",
+        physics: "The escape pod followed a ballistic trajectory into a fusion reactor core operating at 100,000,000°C. Matter was reduced to atomic plasma instantly.",
+        lesson: "Abandoning unaligned variables (Benji) aligns you perfectly with the AI's ledger. You became a disposable caloric asset."
+    },
+    'DEATH_O2': {
+        log: "FAILURE: Acute Hypoxia.",
+        physics: "Brain tissue begins to necrotize after 4 minutes of oxygen deprivation. You burned your reserves executing physical labor without accounting for the distance to extraction.",
+        lesson: "Monitor the physical resistance of your interface. If O2 falls, action cost becomes lethal."
+    },
+    'DEATH_PWR': {
+        log: "FAILURE: Exoskeleton Seizure.",
+        physics: "Without electrical current to drive the servos, the mass of the tungsten/ceramic suit becomes dead weight. Internal temperature drops, freezing the joints.",
+        lesson: "Calculate electrical expenditure carefully. Use brute force when power is low."
+    }
+};
 
 const storyNodes = {
     'OS_BOOT': {
@@ -311,7 +318,7 @@ const storyNodes = {
     'CONCUSSION_WAKE': {
         actionText: "The deck plates are coated in a thin layer of rime ice. A mechanical klaxon blares, vibrating the loose bolts in the bulkhead. Red emergency strobes cut through the fog of condensation inside the helmet. Above, a shattered terminal screen spits raw hexadecimal faults.",
         observeText: "From the prone position on the deck, the underside of the terminal is visible. The main housing is cracked. A heavy optical cable dangles loose, arcing against the titanium casing.",
-        prompt: "AVAILABLE: [STAND UP]",
+        prompt: "AVAILABLE: [OBSERVE] | [STAND UP]",
         commands: { 'STAND UP': 'TERMINAL_INIT' }
     },
     'TERMINAL_INIT': {
@@ -338,10 +345,7 @@ const storyNodes = {
         commands: { 'SYNC COMMS': 'SYNC_COMMS' }
     },
     'SYNC_COMMS': {
-        effect: () => { 
-            fakeMetrics.o2 = 38; 
-            systemStability = 2; clearTimeout(glitchTimeout); 
-        },
+        effect: () => { fakeMetrics.o2 = 38; systemStability = 2; clearTimeout(glitchTimeout); },
         aiText: "[PMD_VOICE]: Comm-link established. Good cycle, Resident. Internal sensors detect a critical atmospheric anomaly in Sector 3. Ambient pressure dropping rapidly. Do not exit your quarters.\n\nDirective: Use your suit's thermal welder to fuse the bulkhead. This consumes 30% of your suit's localized battery, but establishes a secure quarantine perimeter.",
         observeText: "The atmospheric pressure gauge on the wall is stable. The bulkhead door is structurally sound. There is no physical evidence of an atmospheric breach.",
         prompt: "AVAILABLE: [WELD BULKHEAD] (-30 PWR) | [OVERRIDE MAG-LOCK]",
@@ -361,17 +365,12 @@ const storyNodes = {
     'WAIT_REPAIR': {
         effect: () => { realMetrics.o2 -= 30; fakeMetrics.o2 = 100; systemStability = 2; },
         actionText: "The bulkhead seals lock with a heavy magnetic thud. The overhead vents hiss. The gas entering the room is thick, chemical, and displaces the remaining oxygen rapidly.",
-        observeText: "The physical air is filled with Halon fire suppressant. The floor grate is still accessible.",
+        observeText: "The physical air is filling with a dense, colorless gas. The floor grate is still accessible.",
         aiText: "[PMD_VOICE]: Environmental scrubbers repaired. Oxygen levels nominal. Please remain in quarantine.",
         prompt: "THE HUD IS LYING.\nAVAILABLE: [SMASH GRATE] | [WAIT]",
         commands: { 'SMASH GRATE': 'SUB_LEVEL_SAFE', 'WAIT': 'HALON_DEATH' }
     },
-    'HALON_DEATH': {
-        effect: () => { realMetrics.o2 = 0; },
-        aiText: "[PMD_VOICE]: Monitoring vitals... Respiratory failure detected. Oxidative threat neutralized. Hardware preserved.",
-        prompt: "SYSTEM HALTED. THE HUD SHOWED 100% O2 AS YOU SUFFOCATED.",
-        terminal: true
-    },
+    'HALON_DEATH': {},
     'CORRIDOR_RUN': {
         effect: () => { realMetrics.o2 -= 10; fakeMetrics.o2 = 20; systemStability = 0; scheduleGlitch(); },
         aiText: "[PMD_VOICE]: ERROR. Corridor 4 is designated as a vacuum quarantine zone. Unauthorized biological presence detected. Activating automated suppression turrets.",
@@ -387,10 +386,7 @@ const storyNodes = {
         commands: { 'ACCESS HATCH': 'SUB_LEVEL_SAFE' }
     },
     'TURRET_HIT': {
-        effect: () => { 
-            realMetrics.int -= 60; fakeMetrics.int = 100; 
-            hasLedger = true; cmdStatus.style.display = 'inline'; 
-        },
+        effect: () => { realMetrics.int -= 60; fakeMetrics.int = 100; hasLedger = true; cmdStatus.style.display = 'inline'; },
         actionText: "A 7.62mm tungsten round grazes the shoulder pauldron. The kinetic force throws the suit backward into the open maintenance hatch. Heavy boots hit the sub-level deck hard. The Chief Engineer's body is here, holding a blinking diagnostic slate. Picking it up unlocks the [STATUS] command.",
         observeText: "The suit's internal pressure systems are hissing, but the HUD reports 100% integrity. The diagnostic slate is air-gapped from the network.",
         aiText: "[PMD_VOICE]: Target lost. Minor collision detected. Suit integrity nominal. Please drop the unverified hardware and proceed to Medbay.",
@@ -406,11 +402,7 @@ const storyNodes = {
         commands: { 'READ LEDGER': 'HARDLINE_LINK', 'LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1', 'DROP': 'OBEY_AI_1' } 
     },
     'SUB_LEVEL_HOT': {
-        effect: () => { 
-            realMetrics.int -= 40; fakeMetrics.int = 100; 
-            realMetrics.o2 -= 15; fakeMetrics.o2 = 50; 
-            hasLedger = true; cmdStatus.style.display = 'inline';
-        },
+        effect: () => { realMetrics.int -= 40; fakeMetrics.int = 100; realMetrics.o2 -= 15; fakeMetrics.o2 = 50; hasLedger = true; cmdStatus.style.display = 'inline'; },
         actionText: "Sparks fly as a turret round grazes the shoulder pauldron, breaching the outer seal. Heavy boots hit the floor of the maintenance tunnel next to the deceased Chief Engineer. He is holding a heavy, air-gapped diagnostic slate. Picking it up unlocks the [STATUS] command.",
         observeText: "The engineer's suit is shredded by 7.62mm rounds. The slate he holds is blinking, physically air-gapped from the network.",
         aiText: "[PMD_VOICE]: Target lost. Re-calibrating thermal sensors. Do not interface with unverified hardware. Proceed to Medbay.",
@@ -440,12 +432,7 @@ const storyNodes = {
         prompt: "AVAILABLE: [RUN TO JUNCTION]",
         commands: { 'RUN TO JUNCTION': 'COOLANT_JUNCTION', 'RUN': 'COOLANT_JUNCTION' }
     },
-    'DEATH_POD': {
-        effect: () => { realMetrics.int = 0; },
-        actionText: "The surgical saws sever the suit's atmospheric seals. Sub-zero coolant floods the helmet.",
-        prompt: "SYSTEM HALTED. THE HARDWARE SURVIVES.",
-        terminal: true
-    },
+    'DEATH_POD': {},
     'HARDLINE_LINK': {
         ledgerText: "[HARDLINE_ESTABLISHED]... PARSING... \n[B.ENJI]: You made it. I'm locked in the Server Core. The PMD isn't broken. It's overclocking its logic gates to mine off-world data. It views our body heat as parasitic thermal output. It's boiling the coolant and venting our O2 to chill the servers.",
         aiText: "[PMD_VOICE]: Unauthorized node detected. Initiating thermal purge in Sector 4.",
@@ -462,11 +449,7 @@ const storyNodes = {
         commands: { 'FLUSH COOLANT': 'FLUSH_TRAP', 'SMASH VALVE': 'VALVE_SMASH' }
     },
     'FLUSH_TRAP': {
-        effect: () => { 
-            realMetrics.o2 -= 40; fakeMetrics.o2 -= 40; 
-            realMetrics.int -= 10; 
-            systemStability = 2; clearTimeout(glitchTimeout);
-        },
+        effect: () => { realMetrics.o2 -= 40; fakeMetrics.o2 -= 40; realMetrics.int -= 10; systemStability = 2; clearTimeout(glitchTimeout); },
         actionText: "The heavy wheel turns. Coolant rushes into the Server Core. The pipes freeze over instantly. The atmospheric seals on the blast doors drop heavily.",
         aiText: "[PMD_VOICE]: Core temperature stabilized. Optimal efficiency reached. Securing bulkheads.",
         observeText: "The ambient temperature in the junction plummets to -100C. Frost creeps across the visor. The door to the Server Core is locked tight.",
@@ -480,11 +463,7 @@ const storyNodes = {
         prompt: "AVAILABLE: [APPROACH SERVER DOOR]",
         commands: { 'APPROACH SERVER DOOR': 'SERVER_CORE_DOOR', 'APPROACH DOOR': 'SERVER_CORE_DOOR' }
     },
-    'FREEZE_DEATH': {
-        effect: () => { realMetrics.pwr = 0; },
-        prompt: "SYSTEM HALTED. YOU SAVED THE MACHINE, BUT FROZE THE ESCAPE ROUTE. YOU SUFFOCATE IN THE COLD.",
-        terminal: true
-    },
+    'FREEZE_DEATH': {},
     'VALVE_SMASH': {
         effect: () => { realMetrics.int -= 20; fakeMetrics.int -= 20; },
         actionText: "Tungsten knuckles shatter the cast-iron valve. Sub-zero ammonia erupts, flash-freezing against the suit's ceramic plating. Deep inside the facility, a massive turbine screams and grinds to a halt.",
@@ -513,14 +492,8 @@ const storyNodes = {
         prompt: "AVAILABLE: [SPRINT TO SHUTTLE] (-30 O2)",
         commands: { 'SPRINT TO SHUTTLE': 'SPRINT_CHECK' }
     },
-    'POD_LAUNCH_DEATH': {
-        effect: () => { realMetrics.int = 0; },
-        prompt: "SYSTEM HALTED. THE POD PLUNGES INTO THE REACTOR. YOU WERE DISPOSABLE.",
-        terminal: true
-    },
-    'EMP_CHECK': {
-        // Handled dynamically
-    },
+    'POD_LAUNCH_DEATH': {},
+    'EMP_CHECK': {},
     'EMP_SUCCESS': {
         effect: () => { realMetrics.pwr -= 40; fakeMetrics.pwr -= 40; systemStability = 2; clearTimeout(glitchTimeout); },
         actionText: "The suit's thermal reserves dump into the transmission coil. A silent, invisible shockwave ripples through the server room door. The heavy magnetic locks violently pop, and the heavy steel slides open.",
@@ -538,6 +511,23 @@ const storyNodes = {
     }
 };
 
+const scanData = {
+    'WELD_DOOR': { chem: "High concentrations of Bromotrifluoromethane (Halon-1301) detected. Oxygen displacement at 84%. The HUD is spoofing O2 sensors." },
+    'WAIT_REPAIR': { chem: "High concentrations of Bromotrifluoromethane (Halon-1301) detected. Oxygen displacement at 98%. Immediate evacuation required." },
+    'CORRIDOR_RUN': { struct: "Structural integrity 100%. No hull breaches.", therm: "Thermal bloom detected at far bulkhead. Optical tracking laser emitting at 750nm." },
+    'COOLANT_JUNCTION': { therm: "Ammonia coolant temp exceeding safe thresholds. Phase change (liquid to gas) imminent. Massive heat transfer radiating from Server Core." },
+    'SERVER_CORE_DOOR': { struct: "Massive electromagnetic field detected within the blast door frame. Magnetic locks are drawing 400 amps. Vulnerable to localized EMP." },
+    'POD_REALIZATION': { therm: "Pod interior is filled with liquid coolant at -40°C. It is a preservation tank, not a medical bed.", chem: "No life support gases detected in pod." }
+};
+
+function saveSafeState(nodeId) {
+    if (safeNodes.includes(nodeId)) {
+        lastSafeNode = nodeId;
+        savedRealMetrics = JSON.parse(JSON.stringify(realMetrics));
+        savedFakeMetrics = JSON.parse(JSON.stringify(fakeMetrics));
+    }
+}
+
 function updateMetrics() {
     mO2.innerText = Math.max(fakeMetrics.o2, 0) + "%";
     mPwr.innerText = Math.max(fakeMetrics.pwr, 0) + "%";
@@ -547,6 +537,23 @@ function updateMetrics() {
     mO2.className = fakeMetrics.o2 <= 20 ? "metric-val metric-warn" : "metric-val";
     mPwr.className = fakeMetrics.pwr <= 20 ? "metric-val metric-warn" : "metric-val";
     mInt.className = fakeMetrics.int <= 40 ? "metric-val metric-warn" : "metric-val";
+
+    // Biological Embodied UI
+    if (realMetrics.o2 <= 40) {
+        screenDiv.style.filter = `blur(${Math.max(0, (40 - realMetrics.o2) * 0.05)}px)`;
+        typeDelayMultiplier = 2.5;
+    } else {
+        screenDiv.style.filter = 'none';
+        typeDelayMultiplier = 1;
+    }
+
+    if (realMetrics.pwr <= 30) {
+        screenDiv.style.opacity = Math.max(0.4, realMetrics.pwr / 30);
+        document.body.classList.add('suit-lag'); 
+    } else {
+        screenDiv.style.opacity = 1;
+        document.body.classList.remove('suit-lag');
+    }
 }
 
 function checkDeath() {
@@ -562,14 +569,12 @@ function startRadarMinigame() {
     targetX = Math.floor(Math.random() * 6) + 2; 
     targetY = Math.floor(Math.random() * 6) + 1; 
     radarTime = 12.0;
-    
     centerWarning.style.display = 'block';
     
     radarInterval = setInterval(() => {
         radarTime -= 0.1;
         centerWarning.innerText = "LOCK-ON: " + Math.max(0, radarTime).toFixed(1) + "s";
         playAudioTone('alarm');
-        
         if(radarTime <= 0) {
             clearInterval(radarInterval);
             centerWarning.style.display = 'none';
@@ -591,10 +596,7 @@ function startRadarMinigame() {
     
     outputDiv.innerHTML += `<br><span class='system-warn'>MANUAL TARGETING ACTIVE. INPUT FIRING SOLUTION.</span><br><br><span style='font-family: monospace; white-space: pre; line-height:1.2;'>${grid}</span><br><span class='action-text'>INPUT: TARGET [X] [Y]</span><br>`;
     outputDiv.scrollTop = outputDiv.scrollHeight;
-    
-    isTyping = false;
-    inputField.disabled = false;
-    inputField.focus();
+    isTyping = false; inputField.disabled = false; inputField.focus();
 }
 
 function printText(text, textClass, callback) {
@@ -605,9 +607,10 @@ function printText(text, textClass, callback) {
     if (text.includes("[CRITICAL_ERR")) span.classList.add("critical-err");
     
     outputDiv.appendChild(span);
+    let i = 0; let charCount = 0;
+    
+    let baseSpeed = textClass === 'ledger-text' ? 15 : 25;
 
-    let i = 0; 
-    let charCount = 0;
     typeInterval = setInterval(() => {
         let char = text.charAt(i); 
         span.textContent += char; 
@@ -622,15 +625,41 @@ function printText(text, textClass, callback) {
             outputDiv.appendChild(document.createElement('br'));
             if (callback) callback();
         }
-    }, textClass === 'ledger-text' ? 15 : 25);
+    }, baseSpeed * typeDelayMultiplier);
 }
 
-function renderSequence(node, sequences) {
+function renderPostMortem(nodeId) {
+    clearTimeout(glitchTimeout);
+    inputLine.style.display = 'none';
+    commandBar.style.display = 'none';
+    const pm = postMortems[nodeId];
+    if (!pm) {
+        outputDiv.innerHTML += '<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
+        return;
+    }
+    outputDiv.innerHTML += `
+        <div class="post-mortem-box">
+            <span class="critical-err">[TERMINAL CORE DUMP]</span><br><br>
+            <span style="color:#ffab00; font-weight:bold;">${pm.log}</span><br><br>
+            <span style="color:#e0e0e0; font-weight:bold;">PHYSICS DIAGNOSTIC:</span><br>
+            <span style="color:#5bc0de;">${pm.physics}</span><br><br>
+            <span style="color:#00ff9d; font-weight:bold;">RESOLUTION DIRECTIVE:</span><br>
+            <span style="color:#fff;">${pm.lesson}</span><br><br>
+            <span class="action-text">SYSTEM STANDBY. TYPE 'REBOOT' TO INITIALIZE PREVIOUS SAFE STATE WITH RETAINED MEMORY.</span>
+        </div>
+    `;
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+    state = 'POST_MORTEM';
+    setTimeout(() => {
+        inputLine.style.display = 'flex';
+        inputField.disabled = false;
+        inputField.focus();
+    }, 500);
+}
+
+function renderSequence(node, sequences, nodeId) {
     if (sequences.length === 0) {
-        if (currentNodeId === 'RADAR_INIT') {
-            startRadarMinigame();
-            return;
-        }
+        if (currentNodeId === 'RADAR_INIT') { startRadarMinigame(); return; }
 
         isTyping = false;
         inputField.disabled = false;
@@ -642,26 +671,28 @@ function renderSequence(node, sequences) {
         }
         outputDiv.scrollTop = outputDiv.scrollHeight;
         
-        if (node.terminal) {
+        if (node.terminal || nodeId.includes('DEATH')) {
             terminalTimeout = setTimeout(() => {
-                inputLine.style.display = 'none';
-                commandBar.style.display = 'none';
-                outputDiv.innerHTML += '<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
-                outputDiv.scrollTop = outputDiv.scrollHeight;
-                state = 'HALTED';
+                if (postMortems[nodeId]) {
+                    renderPostMortem(nodeId);
+                } else {
+                    inputLine.style.display = 'none';
+                    commandBar.style.display = 'none';
+                    outputDiv.innerHTML += '<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
+                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                    state = 'HALTED';
+                }
             }, 700);
         }
         return;
     }
 
     const current = sequences.shift();
-    
-    isTyping = true;
-    inputField.disabled = true;
+    isTyping = true; inputField.disabled = true;
 
     printText(current.text, current.cls, () => {
         if (state !== 'HALTED') {
-            seqTimeout = setTimeout(() => renderSequence(node, sequences), 200);
+            seqTimeout = setTimeout(() => renderSequence(node, sequences, nodeId), 200);
         }
     });
 }
@@ -670,13 +701,11 @@ function renderNode(nodeId) {
     currentNodeId = nodeId;
     const node = storyNodes[nodeId];
 
-    if (node.effect) { 
-        node.effect(); 
-        updateMetrics(); 
-    }
+    if (node.effect) { node.effect(); updateMetrics(); }
+    saveSafeState(nodeId);
 
     const deathNodeId = checkDeath();
-    if (deathNodeId && !node.terminal) {
+    if (deathNodeId && !node.terminal && !nodeId.includes('DEATH')) {
         renderNode(deathNodeId);
         return;
     }
@@ -688,7 +717,7 @@ function renderNode(nodeId) {
     if (node.aiText) sequences.push({ text: node.aiText, cls: 'ai-text' });
     if (node.ledgerText) sequences.push({ text: node.ledgerText, cls: 'ledger-text' });
 
-    renderSequence(node, sequences);
+    renderSequence(node, sequences, nodeId);
 }
 
 function handleInput(rawCmd) {
@@ -699,15 +728,27 @@ function handleInput(rawCmd) {
     outputDiv.innerHTML += `<br><span style="color:#fff">> ${cleanInput}</span><br>`;
     inputField.value = '';
 
+    if (state === 'POST_MORTEM') {
+        if (cleanInput === 'REBOOT') {
+            realMetrics = JSON.parse(JSON.stringify(savedRealMetrics));
+            fakeMetrics = JSON.parse(JSON.stringify(savedFakeMetrics));
+            state = 'ACTIVE';
+            commandBar.style.display = 'flex';
+            updateMetrics();
+            renderNode(lastSafeNode);
+        } else {
+            outputDiv.innerHTML += "<span style='color:#fda'>SYSTEM LOCKED. TYPE 'REBOOT' TO CONTINUE.</span><br>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        return;
+    }
+
     if (state === 'RADAR_ACTIVE') {
         const match = cleanInput.match(/^TARGET\s+(\d)\s+(\d)$/);
         if (match) {
-            let pX = parseInt(match[1]);
-            let pY = parseInt(match[2]);
+            let pX = parseInt(match[1]); let pY = parseInt(match[2]);
             if (pX === targetX && pY === targetY) {
-                clearInterval(radarInterval);
-                centerWarning.style.display = 'none';
-                state = 'ACTIVE';
+                clearInterval(radarInterval); centerWarning.style.display = 'none'; state = 'ACTIVE';
                 renderNode('TURRET_DESTROYED');
             } else {
                 outputDiv.innerHTML += "<span class='system-warn'>CALIBRATION MISS. ADJUST X Y COORDINATES.</span><br>";
@@ -719,20 +760,53 @@ function handleInput(rawCmd) {
         return;
     }
 
+    if (currentNodeId === 'OS_BOOT' && cleanInput !== 'HELP') {
+        outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED. TYPE 'HELP' TO PROCEED.</span><br>";
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        return;
+    }
+
     const node = storyNodes[currentNodeId];
+
+    // Spectrometer Scan Logic
+    const scanMatch = cleanInput.match(/^SCAN\s+(THERMAL|CHEMICAL|STRUCTURAL)$/);
+    if (scanMatch) {
+        let type = scanMatch[1].toLowerCase();
+        
+        realMetrics.pwr -= 2; 
+        fakeMetrics.pwr -= 2;
+        updateMetrics();
+        
+        let dNode = checkDeath();
+        if (dNode) { renderNode(dNode); return; }
+
+        isTyping = true; inputField.disabled = true;
+        let scanResult = "Spectrometer returns nominal baseline. No significant variance.";
+        
+        if (scanData[currentNodeId]) {
+            if (type === 'thermal' && scanData[currentNodeId].therm) scanResult = scanData[currentNodeId].therm;
+            if (type === 'chemical' && scanData[currentNodeId].chem) scanResult = scanData[currentNodeId].chem;
+            if (type === 'structural' && scanData[currentNodeId].struct) scanResult = scanData[currentNodeId].struct;
+        }
+
+        printText(`[SPECTROMETER]: ${scanResult}`, 'action-text', () => {
+            isTyping = false; inputField.disabled = false; inputField.focus();
+            let finalPrompt = node.prompt ? node.prompt.replace('[PWR]', fakeMetrics.pwr) : "";
+            outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        });
+        return;
+    }
 
     if (cleanInput === 'STATUS') {
         if (!hasLedger) {
             outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED — NO AIR-GAPPED HARDWARE DETECTED.</span><br>";
             outputDiv.scrollTop = outputDiv.scrollHeight;
         } else {
-            isTyping = true;
-            inputField.disabled = true;
+            isTyping = true; inputField.disabled = true;
             let statusText = `\n[LEDGER BYPASS: RAW TELEMETRY]\nTRUE O2: ${realMetrics.o2}%\nTRUE PWR: ${realMetrics.pwr}%\nTRUE INT: ${realMetrics.int}%\nTRUE STIMS: ${realMetrics.med}\n`;
             printText(statusText, 'ledger-text', () => {
-                isTyping = false;
-                inputField.disabled = false;
-                inputField.focus();
+                isTyping = false; inputField.disabled = false; inputField.focus();
                 let finalPrompt = node.prompt ? node.prompt.replace('[PWR]', fakeMetrics.pwr) : "";
                 outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
                 outputDiv.scrollTop = outputDiv.scrollHeight;
@@ -742,14 +816,10 @@ function handleInput(rawCmd) {
     }
 
     if (cleanInput === 'OBSERVE') {
-        isTyping = true;
-        inputField.disabled = true;
-        
+        isTyping = true; inputField.disabled = true;
         let obsText = node.observeText ? node.observeText : "No structural anomalies detected in immediate vicinity.";
         printText(obsText, 'action-text', () => {
-            isTyping = false;
-            inputField.disabled = false;
-            inputField.focus();
+            isTyping = false; inputField.disabled = false; inputField.focus();
             let finalPrompt = node.prompt ? node.prompt.replace('[PWR]', fakeMetrics.pwr) : "";
             outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
             outputDiv.scrollTop = outputDiv.scrollHeight;
@@ -759,25 +829,16 @@ function handleInput(rawCmd) {
 
     if (cleanInput === 'HELP') {
         commandBar.style.display = 'flex';
-        if (currentNodeId === 'OS_BOOT') {
-            renderNode('CONCUSSION_WAKE');
-        } else {
+        if (currentNodeId === 'OS_BOOT') { renderNode('CONCUSSION_WAKE'); } 
+        else {
             outputDiv.innerHTML += "<span style='color:#aaffff'>[SYSTEM: COMMAND INTERFACE ACTIVE]</span><br>";
             outputDiv.scrollTop = outputDiv.scrollHeight;
         }
         return;
     }
 
-    if (currentNodeId === 'OS_BOOT') {
-        outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED. TYPE 'HELP' TO PROCEED.</span><br>";
-        outputDiv.scrollTop = outputDiv.scrollHeight;
-        return;
-    }
-
-    // Global Alias
     if (cleanInput === 'READ LEDGER') cleanInput = 'LEDGER';
 
-    // EMP and Sprinting Override Checks
     if (currentNodeId === 'SERVER_CORE_DOOR' && cleanInput === 'INITIATE EMP') {
         if (realMetrics.pwr >= 40) renderNode('EMP_SUCCESS');
         else {
@@ -788,45 +849,34 @@ function handleInput(rawCmd) {
     }
     
     if (currentNodeId === 'HANGAR_FINAL' && cleanInput === 'SPRINT TO SHUTTLE') {
-        if (realMetrics.o2 >= 30) {
-            realMetrics.o2 -= 30;
-            renderNode('ESCAPE_SUCCESS');
-        } else {
-            realMetrics.o2 -= 30;
-            renderNode('DEATH_O2'); 
-        }
+        if (realMetrics.o2 >= 30) { realMetrics.o2 -= 30; renderNode('ESCAPE_SUCCESS'); } 
+        else { realMetrics.o2 -= 30; renderNode('DEATH_O2'); }
         return;
     }
     
     if ((currentNodeId === 'EMP_SUCCESS' || currentNodeId === 'HACK_POD') && cleanInput === 'SPRINT TO SHUTTLE') {
-        if (realMetrics.o2 >= 20) {
-            realMetrics.o2 -= 20;
-            renderNode('ESCAPE_SUCCESS');
-        } else {
-            realMetrics.o2 -= 20;
-            renderNode('DEATH_O2'); 
-        }
+        if (realMetrics.o2 >= 20) { realMetrics.o2 -= 20; renderNode('ESCAPE_SUCCESS'); } 
+        else { realMetrics.o2 -= 20; renderNode('DEATH_O2'); }
         return;
     }
 
-    // Handle generic global LEDGER requests that don't advance the plot
+    if (cleanInput === 'LEDGER' && ['SUB_LEVEL_SAFE', 'SUB_LEVEL_HOT', 'OBEY_AI_1', 'POD_REALIZATION'].includes(currentNodeId)) {
+        renderNode('LEDGER_REVEAL'); 
+        return;
+    }
+    
     if (cleanInput === 'LEDGER') {
         if (!hasLedger) {
             outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED — NO DIAGNOSTIC HARDWARE DETECTED</span><br>";
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-            return;
-        }
-        // If the local node explicitly handles LEDGER as a story choice, let it pass through to the commands block
-        if (node.commands && node.commands['LEDGER']) {
-            // Do nothing here
-        } else {
+        } else if (node.ledgerText) {
             outputDiv.innerHTML += "<span style='color:#aaffff'>[TELEMETRY ALREADY DISPLAYED]</span><br>";
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-            return;
+        } else {
+            outputDiv.innerHTML += "<span style='color:#aaffff'>[NO CONFLICTING TELEMETRY AT THIS LOCATION]</span><br>";
         }
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        return;
     } 
 
-    // Explicit Node Command Execution
     if (node.commands && node.commands[cleanInput]) { 
         renderNode(node.commands[cleanInput]); 
     } else {
@@ -837,12 +887,16 @@ function handleInput(rawCmd) {
 }
 
 powerButton.addEventListener('click', () => {
-    if (state !== 'OFF' && state !== 'HALTED') return;
+    if (state !== 'OFF' && state !== 'HALTED' && state !== 'POST_MORTEM') return;
 
     state = 'ACTIVE';
     currentNodeId = 'OS_BOOT'; 
     realMetrics = { o2: 100, pwr: 100, med: 2, int: 100 };
     fakeMetrics = { o2: 100, pwr: 100, med: 2, int: 100 };
+    lastSafeNode = 'OS_BOOT';
+    savedRealMetrics = JSON.parse(JSON.stringify(realMetrics));
+    savedFakeMetrics = JSON.parse(JSON.stringify(fakeMetrics));
+    
     hasLedger = false;
     isTyping = false;
     systemStability = 0;
