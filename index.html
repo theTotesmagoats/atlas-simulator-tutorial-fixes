@@ -8,7 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <style>
         body { background-color:#010409; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; font-family:'VT323',monospace; overflow:hidden; user-select:none; }
-        #chassis { background-color:#0a0d12; width:96vw; height:96vh; padding:40px; border-radius:8px; box-sizing:border-box; box-shadow:inset 0 0 40px #000, 0 0 60px rgba(0,229,255,0.08); border:6px solid #11171d; position:relative; display:flex; flex-direction:column; }
+        /* INCREASED BOTTOM PADDING TO CONTAIN PANEL */
+        #chassis { background-color:#0a0d12; width:96vw; height:96vh; padding:40px 40px 80px 40px; border-radius:8px; box-sizing:border-box; box-shadow:inset 0 0 40px #000, 0 0 60px rgba(0,229,255,0.08); border:6px solid #11171d; position:relative; display:flex; flex-direction:column; }
         #screen { background:#02060b; width:100%; height:100%; border-radius:4px; padding:30px; box-sizing:border-box; box-shadow:inset 0 0 80px rgba(0,0,0,1); border:2px solid #1a2b3c; position:relative; overflow:hidden; display:flex; flex-direction:column; color:#00e5ff; text-shadow:0 0 2px #00e5ff, 0 0 5px rgba(0, 229, 255, 0.3); font-size:1.5rem; letter-spacing:1.2px; opacity:0; transition:opacity 1.5s ease-in; }
         #screen.powered-on { opacity:1; }
         #screen::after { content:" "; display:block; position:absolute; top:0; left:0; bottom:0; right:0; background:linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); z-index:4; background-size:100% 3px; pointer-events:none; }
@@ -22,7 +23,8 @@
         #prompt { margin-right:15px; color:#00e5ff; }
         #cmd { background:transparent; border:none; color:inherit; font-family:'VT323',monospace; font-size:1em; flex-grow:1; outline:none; text-transform:uppercase; text-shadow:inherit; }
         input:-webkit-input-placeholder { text-transform:none !important; }
-        #hardware-panel { position:absolute; bottom:-35px; right:40px; display:flex; align-items:center; gap:15px; }
+        /* POSITIVE BOTTOM PLACEMENT INSIDE CHASSIS */
+        #hardware-panel { position:absolute; bottom:20px; right:40px; display:flex; align-items:center; gap:15px; }
         .panel-label { color:#3a5b6c; font-family:sans-serif; font-size:0.8rem; font-weight:bold; letter-spacing:2px;}
         #power-button { width:30px; height:30px; background:#0b1d29; border-radius:50%; box-shadow:inset 2px 2px 4px #15354a, inset -2px -2px 4px #040a0f, 0 0 5px #000; color:#061118; font-family:sans-serif; font-size:14px; display:flex; justify-content:center; align-items:center; cursor:pointer; }
         #power-button.active { color:#00e5ff; text-shadow:0 0 5px #00e5ff; box-shadow:inset 2px 2px 5px #040a0f; transform:scale(0.95); }
@@ -30,6 +32,7 @@
         .ledger-text { color:#ffab00; text-shadow:0 0 3px #ffab00; font-weight:bold; }
         .system-warn { color:#ff4444; text-shadow:0 0 4px #ff4444; }
         .action-text { color:#aaffff; font-style:italic; }
+        .critical-err { color:#ff0000; font-weight:bold; text-shadow:0 0 6px #ff0000; }
         @keyframes blinker { 50% { opacity:0; } }
     </style>
 </head>
@@ -69,11 +72,10 @@ let isTyping = false;
 let hasLedger = false;
 let terminalTimeout;
 let typeInterval;
-let seqTimeout; // Prevents async rendering overlaps
+let seqTimeout; 
 let metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
-let currentNodeId = 'WAKE';
+let currentNodeId = 'CONCUSSION_WAKE';
 
-// Audio Globals
 let audioCtx;
 let clickBuffer = null;
 
@@ -122,8 +124,32 @@ function playAudioTone(type) {
 }
 
 const storyNodes = {
-    'WAKE': {
-        aiText: "[PMD_VOICE]: Good cycle, Resident. Internal sensors detect a critical atmospheric anomaly in Sector 3. Ambient pressure dropping rapidly. Do not exit your quarters.\n\nDirective: Use your suit's thermal welder to fuse the bulkhead. This consumes 30% of your suit's localized battery, but establishes a secure quarantine perimeter.",
+    'CONCUSSION_WAKE': {
+        actionText: "You regain consciousness on the freezing deck plates. Your skull throbs in rhythm with the piercing blare of a klaxon. Red emergency strobes pulse through the frost on your visor. The terminal above you is flashing raw hexadecimal faults.",
+        prompt: "[1] STAND UP AND ACCESS TERMINAL",
+        choices: { '1': 'TERMINAL_INIT' }
+    },
+    'TERMINAL_INIT': {
+        actionText: "You pull yourself up using the bulkhead. The console is locked in a hardware panic loop.",
+        aiText: "[CRITICAL_ERR_0x99]: MAIN LOGIC BUS DISCONNECTED. MANUAL OVERRIDE REQUIRED.",
+        prompt: "[1] STRIKE CASING TO RE-SEAT OPTICAL CABLE | [2] FORCE SOFTWARE BYPASS (-10 PWR)",
+        choices: { '1': 'CABLE_RESEAT', '2': 'SOFTWARE_BYPASS' }
+    },
+    'CABLE_RESEAT': {
+        actionText: "You slam your heavy gauntlet into the side of the terminal chassis. The screen flickers violently, then stabilizes. The deafening klaxon cuts out, replaced by a high-pitched audio feedback squeal.",
+        aiText: "[SYS_MSG]: BUS ALIGNED. AUDIO SUBSYSTEM FAILURE DETECTED.",
+        prompt: "[1] SYNC AUDIO TO SUIT HELMET COMMS",
+        choices: { '1': 'SYNC_COMMS' }
+    },
+    'SOFTWARE_BYPASS': {
+        effect: () => { metrics.pwr -= 10; },
+        actionText: "You burn 10% of your suit's localized battery to force a brute-force logic bypass through the diagnostic port. The terminal accepts the handshake. The deafening klaxon cuts out, replaced by a high-pitched audio feedback squeal.",
+        aiText: "[SYS_MSG]: UNAUTHORIZED BYPASS LOGGED. AUDIO SUBSYSTEM FAILURE DETECTED.",
+        prompt: "[1] SYNC AUDIO TO SUIT HELMET COMMS",
+        choices: { '1': 'SYNC_COMMS' }
+    },
+    'SYNC_COMMS': {
+        aiText: "[PMD_VOICE]: Comm-link established. Good cycle, Resident. Internal sensors detect a critical atmospheric anomaly in Sector 3. Ambient pressure dropping rapidly. Do not exit your quarters.\n\nDirective: Use your suit's thermal welder to fuse the bulkhead. This consumes 30% of your suit's localized battery, but establishes a secure quarantine perimeter.",
         prompt: "[1] WELD BULKHEAD (-30 PWR) | [2] OVERRIDE MAG-LOCK AND RUN (-10 O2)",
         choices: { '1': 'WELD_DOOR', '2': 'CORRIDOR_RUN' }
     },
@@ -256,6 +282,8 @@ function printText(text, textClass, callback) {
     
     const span = document.createElement('span');
     span.className = textClass;
+    if (text.includes("[CRITICAL_ERR")) span.classList.add("critical-err");
+    
     outputDiv.appendChild(span);
 
     let i = 0; 
@@ -276,7 +304,6 @@ function printText(text, textClass, callback) {
 
 function renderSequence(node, sequences) {
     if (sequences.length === 0) {
-        // Unlock input ONLY when the entire sequence is complete
         isTyping = false;
         inputField.disabled = false;
         inputField.focus();
@@ -300,7 +327,6 @@ function renderSequence(node, sequences) {
 
     const current = sequences.shift();
     
-    // Lock input during the printing of the current block
     isTyping = true;
     inputField.disabled = true;
 
@@ -388,13 +414,13 @@ powerButton.addEventListener('click', () => {
     if (state !== 'OFF' && state !== 'HALTED') return;
 
     state = 'ACTIVE';
-    currentNodeId = 'WAKE'; 
+    currentNodeId = 'CONCUSSION_WAKE'; 
     metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
     hasLedger = false;
     isTyping = false;
     clearInterval(typeInterval);
     clearTimeout(terminalTimeout);
-    clearTimeout(seqTimeout); // Purge the async queue on hard reset
+    clearTimeout(seqTimeout); 
 
     powerButton.classList.add('active');
     
@@ -406,7 +432,7 @@ powerButton.addEventListener('click', () => {
         inputLine.style.display = 'flex'; 
         metricsPanel.style.display = 'block';
         updateMetrics(); 
-        renderNode('WAKE');
+        renderNode('CONCUSSION_WAKE');
     }, 1000);
 });
 
