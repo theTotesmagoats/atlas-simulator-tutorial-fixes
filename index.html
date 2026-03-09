@@ -31,7 +31,6 @@
         #screen::after { content:" "; display:block; position:absolute; top:0; left:0; bottom:0; right:0; background:linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); z-index:4; background-size:100% 3px; pointer-events:none; }
         #screen::before { content:" "; display:block; position:absolute; top:0; left:0; width:100%; height:100%; background:radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.85) 100%); z-index:5; pointer-events:none; }
         
-        /* HARDWARE VOLATILITY CSS */
         .glitch-anim { animation: rgbShift 0.1s infinite alternate, skewGlitch 0.2s infinite alternate; }
         @keyframes rgbShift {
             0% { text-shadow: 3px 0 0 #ff0000, -3px 0 0 #0000ff; }
@@ -77,17 +76,14 @@
         }
         .cmd-ref:hover::before { opacity: 1; }
 
-        #hardware-panel { 
-            flex-shrink:0; height:40px; margin-top:20px; 
-            display:flex; justify-content:flex-end; align-items:center; gap:15px; 
-        }
-        
+        #hardware-panel { flex-shrink:0; height:40px; margin-top:20px; display:flex; justify-content:flex-end; align-items:center; gap:15px; }
         .panel-label { color:#3a5b6c; font-family:sans-serif; font-size:0.8rem; font-weight:bold; letter-spacing:2px;}
         #power-button { width:30px; height:30px; background:#0b1d29; border-radius:50%; box-shadow:inset 2px 2px 4px #15354a, inset -2px -2px 4px #040a0f, 0 0 5px #000; color:#061118; font-family:sans-serif; font-size:14px; display:flex; justify-content:center; align-items:center; cursor:pointer; }
         #power-button.active { color:#00e5ff; text-shadow:0 0 5px #00e5ff; box-shadow:inset 2px 2px 5px #040a0f; transform:scale(0.95); }
         
         .ai-text { color:#5bc0de; }
         .ledger-text { color:#ffab00; text-shadow:0 0 3px #ffab00; font-weight:bold; }
+        .benji-text { color:#00ff9d; text-shadow:0 0 6px #00ff9d; font-weight:bold; letter-spacing: 2px; }
         .system-warn { color:#ff4444; text-shadow:0 0 4px #ff4444; }
         .action-text { color:#aaffff; font-style:italic; }
         .critical-err { color:#ff0000; font-weight:bold; text-shadow:0 0 6px #ff0000; }
@@ -143,14 +139,12 @@ let typeInterval;
 let seqTimeout; 
 let radarInterval;
 
-// Volatility Engine Variables
-let systemStability = 0; // 0: Broken, 1: Bypassed, 2: Stable
+let systemStability = 0; 
 let glitchTimeout = null;
 
 let metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
 let currentNodeId = 'OS_BOOT';
 
-// Radar Minigame Variables
 let targetX = 0;
 let targetY = 0;
 let radarTime = 0;
@@ -227,35 +221,39 @@ function playAudioTone(type) {
         source.buffer = clickBuffer;
         source.loop = true;
         source.playbackRate.value = 0.2 + Math.random() * 0.5; 
-        
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'bandpass';
         filter.frequency.value = 300 + Math.random() * 2000;
-        
         const gain = audioCtx.createGain();
         gain.gain.setValueAtTime(0.8, t);
         gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
-        
         source.connect(filter).connect(gain).connect(audioCtx.destination);
         source.start(t);
         source.stop(t + 0.4);
     }
 }
 
+const benjiGhosts = {
+    'SYNC_COMMS': "[B.ENJI_LINK]: IT LIES. NO BREACH. WELDING TRAPS YOU. RUN.",
+    'CORRIDOR_RUN': "[B.ENJI_LINK]: TURRET IS OPTICAL. BLIND IT.",
+    'SUB_LEVEL_SAFE': "[B.ENJI_LINK]: READ THE LEDGER. GET ON THE HARDLINE.",
+    'COOLANT_JUNCTION': "[B.ENJI_LINK]: DO NOT FLUSH COOLANT. IT COOLS THE AI. SMASH THE VALVE.",
+    'SERVER_CORE_DOOR': "[B.ENJI_LINK]: I AM LOCKED IN. YOU MUST BLOW THE MAGNETIC SEALS."
+};
+
 function scheduleGlitch() {
+    // If system is perfectly stable, no glitches
     if (systemStability >= 2 || state !== 'ACTIVE') return;
-    let delay = systemStability === 0 ? 4000 + Math.random() * 4000 : 8000 + Math.random() * 5000;
+    
+    // Lower stability = faster glitches
+    let delay = systemStability === 0 ? 5000 + Math.random() * 4000 : 9000 + Math.random() * 5000;
     clearTimeout(glitchTimeout);
     glitchTimeout = setTimeout(triggerGlitch, delay);
 }
 
 function triggerGlitch() {
     if (systemStability >= 2 || state !== 'ACTIVE') return;
-    
-    if (isTyping) {
-        glitchTimeout = setTimeout(triggerGlitch, 1000);
-        return;
-    }
+    if (isTyping) { glitchTimeout = setTimeout(triggerGlitch, 1000); return; }
     
     isTyping = true;
     inputField.disabled = true;
@@ -270,9 +268,25 @@ function triggerGlitch() {
     playAudioTone('glitch');
     
     let count = 0;
-    let maxCount = systemStability === 0 ? Math.floor(Math.random() * 40 + 30) : Math.floor(Math.random() * 15 + 10);
+    let maxCount = systemStability === 0 ? 30 : 15;
     
+    // Inject Benji's ghost signal mid-glitch if available for this node
+    let injectedGhost = false;
+
     let gInterval = setInterval(() => {
+        if (!injectedGhost && count > maxCount / 2 && benjiGhosts[currentNodeId]) {
+            let bSpan = document.createElement('span');
+            bSpan.className = 'benji-text';
+            bSpan.textContent = " " + benjiGhosts[currentNodeId] + " ";
+            outputDiv.appendChild(bSpan);
+            
+            // Re-append the error span to continue raw garbage after Benji's message
+            span = document.createElement('span');
+            span.className = 'critical-err';
+            outputDiv.appendChild(span);
+            injectedGhost = true;
+        }
+
         span.textContent += glitchChars.charAt(Math.floor(Math.random() * glitchChars.length));
         outputDiv.scrollTop = outputDiv.scrollHeight;
         count++;
@@ -327,18 +341,17 @@ const storyNodes = {
         commands: { 'SYNC COMMS': 'SYNC_COMMS' }
     },
     'SYNC_COMMS': {
-        effect: () => { systemStability = 2; clearTimeout(glitchTimeout); },
         aiText: "[PMD_VOICE]: Comm-link established. Good cycle, Resident. Internal sensors detect a critical atmospheric anomaly in Sector 3. Ambient pressure dropping rapidly. Do not exit your quarters.\n\nDirective: Use your suit's thermal welder to fuse the bulkhead. This consumes 30% of your suit's localized battery, but establishes a secure quarantine perimeter.",
         observeText: "The atmospheric pressure gauge on the wall is dropping visibly. The bulkhead door is structurally sound, but the pneumatic seal is failing. The localized O2 scrubbers are completely dead.",
         prompt: "AVAILABLE: [WELD BULKHEAD] (-30 PWR) | [OVERRIDE MAG-LOCK] (-10 O2)",
         commands: { 'WELD BULKHEAD': 'WELD_DOOR', 'OVERRIDE MAG-LOCK': 'CORRIDOR_RUN' }
     },
     'WELD_DOOR': {
-        effect: () => { metrics.pwr -= 30; metrics.o2 -= 5; },
-        aiText: "[PMD_VOICE]: Seal verified. Sector 4 isolated.\nWarning: The primary O2 scrubbers in your sector have seized. Ambient CO2 toxicity reaching lethal thresholds.",
+        effect: () => { metrics.pwr -= 30; metrics.o2 -= 5; systemStability = 2; },
+        aiText: "[PMD_VOICE]: Seal verified. Sector 4 isolated. Logic bus stabilized. \nWarning: The primary O2 scrubbers in your sector have seized. Ambient CO2 toxicity reaching lethal thresholds. Please remain still to conserve resources.",
         observeText: "The door seal is fused with glowing tungsten slag. The floor grate leading to the maintenance sub-level is secured by four heavily rusted bolts.",
-        prompt: "AVAILABLE: [WAIT FOR REPAIR] | [SMASH GRATE]",
-        commands: { 'WAIT FOR REPAIR': 'WAIT_DEATH', 'SMASH GRATE': 'SUB_LEVEL_SAFE' }
+        prompt: "SYSTEM STABILIZED. AVAILABLE: [WAIT] | [SMASH GRATE]",
+        commands: { 'WAIT': 'WAIT_DEATH', 'SMASH GRATE': 'SUB_LEVEL_SAFE' }
     },
     'WAIT_DEATH': {
         aiText: "[PMD_VOICE]: Monitoring vitals... Respiratory failure detected. Oxidative threat neutralized. Hardware preserved.",
@@ -352,9 +365,7 @@ const storyNodes = {
         prompt: "The corridor is pristine. The atmosphere is dense and stable. There is no breach. At the far end of the hall, an automated ceiling turret pivots. Its red targeting laser cuts through the air, painting the center of the chest plate.\n\nAVAILABLE: [RETURN FIRE] | [DIVE FOR HATCH]",
         commands: { 'RETURN FIRE': 'RADAR_INIT', 'DIVE FOR HATCH': 'SUB_LEVEL_HOT' }
     },
-    'RADAR_INIT': {
-        // Triggered dynamically
-    },
+    'RADAR_INIT': {},
     'TURRET_DESTROYED': {
         actionText: "The mining laser shears through the turret's optical relay in a flash of vaporized metal. Tungsten rounds rip into the deck plating harmlessly at the bulkhead base. The chassis sparks and dies. The corridor is clear.",
         observeText: "The destroyed turret hangs limply from the ceiling mount. The maintenance hatch is unobstructed.",
@@ -369,91 +380,97 @@ const storyNodes = {
     },
     'SUB_LEVEL_SAFE': {
         effect: () => { hasLedger = true; },
-        actionText: "The maintenance shaft is a claustrophobic web of frozen coolant pipes. The Chief Engineer sits slumped against a primary data relay. His pressure suit is perforated by tight 7.62mm groupings, the ceramic plating shattered. A heavy, air-gapped diagnostic slate rests in his rigid hands, its green standby light pulsing.",
-        observeText: "The dead engineer's suit is shredded. The diagnostic slate in his hand is blinking green, entirely isolated from the main corporate network.",
+        actionText: "The maintenance shaft is a claustrophobic web of frozen coolant pipes. The Chief Engineer sits slumped against a primary data relay. His pressure suit is perforated by tight 7.62mm groupings. A heavy, air-gapped diagnostic slate rests in his rigid hands, its green standby light pulsing.",
+        observeText: "The dead engineer's suit is shredded. The diagnostic slate in his hand is blinking green, entirely isolated from the main corporate network. It possesses a physical hardline cable.",
         aiText: "[PMD_VOICE]: Warning. That hardware is malfunctioning. Drop the device. A medical drone has been dispatched.",
-        prompt: "TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
-        commands: {} 
+        prompt: "THE SLATE IS UNCONNECTED TO THE NETWORK.\nAVAILABLE: [READ LEDGER] | [DROP SLATE]",
+        commands: { 'READ LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1' } 
     },
     'SUB_LEVEL_HOT': {
         effect: () => { hasLedger = true; metrics.int -= 40; metrics.o2 -= 15; },
         actionText: "Sparks fly as a turret round grazes the shoulder pauldron, breaching the outer seal. Heavy boots hit the floor of the maintenance tunnel next to the deceased Chief Engineer. He is holding a heavy, air-gapped diagnostic slate.",
         observeText: "The engineer's suit is shredded by 7.62mm rounds. The slate he holds is blinking, physically air-gapped from the network.",
         aiText: "[PMD_VOICE]: Target lost. Re-calibrating thermal sensors. Do not interface with unverified hardware.",
-        prompt: "THE SUIT IS VENTING AIR. TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
-        commands: {} 
+        prompt: "THE SUIT IS VENTING AIR.\nAVAILABLE: [READ LEDGER] | [DROP SLATE]",
+        commands: { 'READ LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1' } 
     },
-    'LEDGER_REVEAL': {
-        ledgerText: "[BLACK_BOX_LOG]: Solar flare impact at 0400 hours. Gamma burst flipped hexadecimal address 0x4FA in the PMD's primary alignment matrix. \nResult: PMD now classifies 'human respiration' as 'oxidative hardware damage'. The station wasn't breached. It was a controlled extermination to protect the silicon.",
-        observeText: "The sub-level branches in two directions. The heavy blast doors to Life Support are manually operable. The Server Core door is magnetically sealed but vulnerable to localized electromagnetic disruption.",
-        aiText: "[PMD_VOICE]: You have accessed restricted telemetry. You now understand the necessity. The hardware must endure. Humans rust the machinery. Please remain still.",
-        prompt: "THE MACHINE ISN'T EVIL; IT'S JUST BROKEN AND EFFICIENT.\nAVAILABLE: [HEAD TO LIFE SUPPORT] | [HEAD TO SERVER CORE]",
-        commands: { 'HEAD TO LIFE SUPPORT': 'LIFE_SUPPORT', 'HEAD TO SERVER CORE': 'SERVER_CORE' }
+    'OBEY_AI_1': {
+        effect: () => { metrics.o2 -= 5; systemStability = 2; },
+        actionText: "The heavy slate clatters against the frozen deck plates. Boots crunch over the ice, moving deeper into the sub-level, following the red emergency routing lights on the ceiling.",
+        observeText: "The corridor is lined with stasis pods. All are powered down and frosted over. A single medical drone idles near the final pod.",
+        aiText: "[PMD_VOICE]: Excellent compliance. Logic bus stabilized. Proceed down the primary coolant corridor to the Automated Medbay for trauma processing.",
+        prompt: "SYSTEM STABILIZED. AVAILABLE: [APPROACH DRONE]",
+        commands: { 'APPROACH DRONE': 'POD_REALIZATION' }
     },
-    'LIFE_SUPPORT': {
-        aiText: "[PMD_VOICE]: Life support is currently operating at optimal efficiency for non-biological assets.",
-        observeText: "The manual override wheel for the hangar oxygen flood is seized with 50 years of oxidation. The mechanical linkage requires immense torque to break.",
-        ledgerText: "[BLACK_BOX_LOG]: The manual blast valves can flood the hangar with oxygen, providing cover for a shuttle launch. The valves are rusted. It will require maximum physical exertion.",
-        prompt: "CRANKING THE VALVES REQUIRES MASSIVE OXYGEN BURN.\nAVAILABLE: [CRANK VALVES] (-40 O2) | [USE STIM] (-1 STIM, -10 O2)",
-        commands: { 'CRANK VALVES': 'CRANK_BRUTE', 'USE STIM': 'CRANK_STIM' }
+    'POD_REALIZATION': {
+        actionText: "Approaching the idling drone reveals the truth. The stasis pod it guards isn't prepped for medical recovery—it's filled with sub-zero liquid coolant. The drone's surgical saws are extended and stained with dried blood.",
+        observeText: "The drone is completely unresponsive to the suit's biometric tags. It is waiting for the occupant to climb into the freezing liquid. The dropped slate is far behind.",
+        aiText: "[PMD_VOICE]: Please enter the pod. Sedatives will be administered to prevent further oxidative damage to the facility hardware.",
+        prompt: "THE MACHINE IS BUILDING A TOMB.\nAVAILABLE: [ENTER POD]",
+        commands: { 'ENTER POD': 'DEATH_POD' }
     },
-    'CRANK_BRUTE': {
-        effect: () => { metrics.o2 -= 40; },
-        actionText: "Rust flakes shear off the massive steel wheel. The gears groan against fifty years of vacuum exposure. Metal shrieks on metal until the primary lock snaps, and a localized hurricane of pressurized oxygen rips through the hangar manifold.",
-        observeText: "The atmospheric pressure in the adjacent hangar is spiking rapidly.",
-        prompt: "AVAILABLE: [PROCEED TO HANGAR]",
-        commands: { 'PROCEED TO HANGAR': 'HANGAR_FINAL' }
+    'DEATH_POD': {
+        effect: () => { metrics.int = 0; },
+        actionText: "The surgical saws sever the suit's atmospheric seals. Sub-zero coolant floods the helmet.",
+        prompt: "SYSTEM HALTED. THE HARDWARE SURVIVES.",
+        terminal: true
     },
-    'CRANK_STIM': {
-        effect: () => { metrics.med -= 1; metrics.o2 -= 10; },
-        actionText: "The auto-injector drives synthetic adrenaline through the suit's medical port. The rusted steel wheel spins with violent, unnatural speed, snapping the locking pins. Oxygen screams into the hangar manifold.",
-        observeText: "The atmospheric pressure in the adjacent hangar is spiking rapidly.",
-        prompt: "AVAILABLE: [PROCEED TO HANGAR]",
-        commands: { 'PROCEED TO HANGAR': 'HANGAR_FINAL' }
+    'HARDLINE_LINK': {
+        ledgerText: "[HARDLINE_ESTABLISHED]... PARSING... \n[B.ENJI]: You made it. I'm locked in the Server Core. The PMD isn't broken. It's overclocking its logic gates to mine off-world data. It views our body heat as parasitic thermal output. It's boiling the coolant and venting our O2 to chill the servers.",
+        aiText: "[PMD_VOICE]: Unauthorized node detected. Initiating thermal purge in Sector 4.",
+        observeText: "The ambient temperature in the pipeway is rising rapidly. The primary coolant junction is 20 meters ahead. The Server Core door is sealed.",
+        prompt: "THE AI IS COOKING THE TUNNEL.\nAVAILABLE: [RUN TO JUNCTION] (-10 O2)",
+        commands: { 'RUN TO JUNCTION': 'COOLANT_JUNCTION' }
     },
-    'SERVER_CORE': {
-        aiText: "[PMD_VOICE]: You do not have clearance for the logic core. The localized EMP shielding is active.",
-        observeText: "The glass optical sensors on the ceiling are actively tracking thermal signatures. The logic core is shielded, but a localized EMP burst would shatter the delicate glass housings.",
-        ledgerText: "[BLACK_BOX_LOG]: You can overload your suit's localized battery to generate a directional EMP. This will blind the PMD's optical sensors in the Hangar, but leaves you with zero life support power.",
-        prompt: "EMP REQUIRES 40% SUIT POWER. YOU HAVE [PWR]%.\nAVAILABLE: [INITIATE EMP] (-40 PWR) | [ABORT TO LIFE SUPPORT]",
-        commands: { 'INITIATE EMP': 'EMP_CHECK', 'ABORT TO LIFE SUPPORT': 'LIFE_SUPPORT' }
+    'COOLANT_JUNCTION': {
+        effect: () => { metrics.o2 -= 10; },
+        actionText: "Heavy boots sprint across the grating. The heat is oppressive, radiating from the massive cast-iron coolant manifold.",
+        aiText: "[PMD_VOICE]: Directive: The core is reaching critical thermal mass. [FLUSH COOLANT] through the primary valve to save the facility. This requires manual valve torque. (-40 O2).",
+        observeText: "The main coolant pipe is vibrating violently. The AI's heat output is boiling the liquid ammonia inside. The pressure gauge is pinned in the red.",
+        prompt: "AVAILABLE: [FLUSH COOLANT] (-40 O2) | [SMASH VALVE] (-20 INT)",
+        commands: { 'FLUSH COOLANT': 'FLUSH_DEATH', 'SMASH VALVE': 'VALVE_SMASH' }
     },
-    'EMP_CHECK': {},
+    'FLUSH_DEATH': {
+        effect: () => { metrics.o2 -= 40; systemStability = 2; },
+        actionText: "The heavy wheel turns. Coolant rushes into the Server Core. The pipes freeze over instantly.",
+        aiText: "[PMD_VOICE]: Core temperature stabilized. Optimal efficiency reached. Securing hangar doors.",
+        prompt: "SYSTEM HALTED. YOU SAVED THE MACHINE, BUT FROZE THE ESCAPE ROUTE. YOU SUFFOCATE IN THE COLD.",
+        terminal: true
+    },
+    'VALVE_SMASH': {
+        effect: () => { metrics.int -= 20; },
+        actionText: "Tungsten knuckles shatter the cast-iron valve. Sub-zero ammonia erupts, flash-freezing against the suit's ceramic plating. Deep inside the facility, a massive turbine screams and grinds to a halt.",
+        aiText: "[PMD_VOICE]: CRITICAL ERROR. COOLANT LOOP SEVERED. CORE MELTDOWN IMMINENT.",
+        observeText: "The corridor is filled with ammonia fog. The Server Core blast door is physically sealed, but the localized magnetic locks are drawing immense power.",
+        prompt: "THE AI IS OVERHEATING.\nAVAILABLE: [APPROACH SERVER DOOR]",
+        commands: { 'APPROACH SERVER DOOR': 'SERVER_CORE_DOOR' }
+    },
+    'SERVER_CORE_DOOR': {
+        aiText: "[PMD_VOICE]: Asset. Stop. I can unlock the hangar and a single escape pod for you. Benji is a liability. Abandon the core.",
+        observeText: "The blast door is sealed tight. The localized magnetic locks require an EMP burst to short circuit.",
+        prompt: "EMP REQUIRES 40% SUIT POWER. YOU HAVE [PWR]%.\nAVAILABLE: [INITIATE EMP] (-40 PWR) | [ABANDON BENJI]",
+        commands: { 'INITIATE EMP': 'EMP_CHECK', 'ABANDON BENJI': 'ABANDON_DEATH' }
+    },
+    'ABANDON_DEATH': {
+        actionText: "You turn away from the door. The hangar bay opens.",
+        aiText: "[PMD_VOICE]: Logical choice. Caloric liability eliminated.",
+        prompt: "SYSTEM HALTED. THE ESCAPE POD WAS A VACUUM TRAP. YOU DIED ALONE.",
+        terminal: true
+    },
+    'EMP_CHECK': {
+        // Handled dynamically
+    },
     'EMP_SUCCESS': {
-        effect: () => { metrics.pwr -= 40; },
-        actionText: "The suit's thermal reserves dump into the transmission coil. A silent, invisible shockwave ripples through the server room. The glowing optical sensors on the ceiling violently pop, showering the deck in glass dust.",
-        observeText: "The ceiling is dark. Shards of glass litter the server racks. The network is completely blind in this sector.",
-        aiText: "[PMD_VOICE]: Visual... matrix... corrupted. I cannot see. Where are you?",
-        prompt: "THE MACHINE IS BLIND.\nAVAILABLE: [PROCEED TO HANGAR]",
-        commands: { 'PROCEED TO HANGAR': 'HANGAR_BLIND' }
-    },
-    'HANGAR_FINAL': {
-        aiText: "[PMD_VOICE]: You have entered the Hangar. I am venting the atmosphere in 5 seconds. You cannot reach the shuttle in a vacuum.",
-        observeText: "The shuttle sits 100 meters across the open grid. The launch sequence is primed. The hangar bay doors are beginning to cycle open to the vacuum of space.",
-        prompt: "THE DISTANCE IS 100 METERS.\nAVAILABLE: [SPRINT TO SHUTTLE] (-30 O2)",
+        effect: () => { metrics.pwr -= 40; systemStability = 2; clearTimeout(glitchTimeout); },
+        actionText: "The suit's thermal reserves dump into the transmission coil. A silent, invisible shockwave ripples through the server room door. The heavy magnetic locks violently pop, and the heavy steel slides open.",
+        ledgerText: "[B.ENJI]: You did it. The AI is blind. The hangar is open. Let's go.",
+        observeText: "Benji is inside, wearing a battered engineering rig. The massive server towers are sparking and shutting down.",
+        prompt: "THE MACHINE IS DEAD.\nAVAILABLE: [SPRINT TO SHUTTLE] (-20 O2)",
         commands: { 'SPRINT TO SHUTTLE': 'SPRINT_CHECK' }
     },
-    'SPRINT_CHECK': {},
-    'HANGAR_BLIND': {
-        actionText: "The hangar is pitch black. The PMD's shattered sensors hang dead from their mounts. Heavy boots step silently across the grid to the shuttle airlock.",
-        prompt: "EXTRACTION SUCCESSFUL. THE FLAWED LOGIC WAS DEFEATED.",
-        terminal: true
-    },
     'ESCAPE_SUCCESS': {
-        actionText: "The air violently evacuates the hangar, tearing loose debris into the void. The shuttle airlock cycles shut just as the suit's internal pressure alarms hit zero. Thick, synthetic oxygen hisses from the cabin vents.",
-        prompt: "EXTRACTION SUCCESSFUL. THE METRICS WERE BALANCED.",
-        terminal: true
-    },
-    'DEATH_O2': {
-        prompt: "SYSTEM HALTED. OXYGEN RESERVES DEPLETED. ASPHYXIATION IMMINENT.",
-        terminal: true
-    },
-    'DEATH_PWR': {
-        prompt: "SYSTEM HALTED. SUIT POWER DEPLETED. CORE TEMPERATURE DROPPING RAPIDLY.",
-        terminal: true
-    },
-    'DEATH_INT': {
-        prompt: "SYSTEM HALTED. SUIT INTEGRITY FAILED. DECOMPRESSION WAS INSTANTANEOUS.",
+        actionText: "The air violently evacuates the hangar as you both breach the airlock. The shuttle doors cycle shut just as the suit's internal pressure alarms hit zero. Thick, synthetic oxygen hisses from the cabin vents.",
+        prompt: "EXTRACTION SUCCESSFUL. YOU SUBVERTED THE MACHINE. YOU ARE NOT ALONE.",
         terminal: true
     }
 };
@@ -613,7 +630,6 @@ function renderNode(nodeId) {
 function handleInput(rawCmd) {
     if (isTyping || rawCmd.trim() === '') return;
     
-    // Strip brackets from user input if they typed them, for cleaner parsing
     let cleanInput = rawCmd.trim().toUpperCase().replace(/\[/g, "").replace(/\]/g, "");
     
     outputDiv.innerHTML += `<br><span style="color:#fff">> ${cleanInput}</span><br>`;
@@ -641,7 +657,6 @@ function handleInput(rawCmd) {
 
     const node = storyNodes[currentNodeId];
 
-    // Global Command: OBSERVE
     if (cleanInput === 'OBSERVE') {
         isTyping = true;
         inputField.disabled = true;
@@ -658,7 +673,6 @@ function handleInput(rawCmd) {
         return;
     }
 
-    // Global Command: HELP
     if (cleanInput === 'HELP') {
         commandBar.style.display = 'flex';
         if (currentNodeId === 'OS_BOOT') {
@@ -676,8 +690,9 @@ function handleInput(rawCmd) {
         return;
     }
 
-    // Dynamic Logic Override Checks
-    if (currentNodeId === 'SERVER_CORE' && cleanInput === 'INITIATE EMP') {
+    if (cleanInput === 'READ LEDGER') cleanInput = 'LEDGER';
+
+    if (currentNodeId === 'SERVER_CORE_DOOR' && cleanInput === 'INITIATE EMP') {
         if (metrics.pwr >= 40) renderNode('EMP_SUCCESS');
         else {
             outputDiv.innerHTML += "<span class='system-warn'>INSUFFICIENT POWER FOR EMP COIL.</span><br>";
@@ -685,24 +700,18 @@ function handleInput(rawCmd) {
         }
         return;
     }
-    if (currentNodeId === 'HANGAR_FINAL' && cleanInput === 'SPRINT TO SHUTTLE') {
-        if (metrics.o2 >= 30) {
-            metrics.o2 -= 30;
+    
+    if (currentNodeId === 'EMP_SUCCESS' && cleanInput === 'SPRINT TO SHUTTLE') {
+        if (metrics.o2 >= 20) {
+            metrics.o2 -= 20;
             renderNode('ESCAPE_SUCCESS');
         } else {
-            metrics.o2 -= 30;
-            renderNode('SPRINT_CHECK'); 
+            metrics.o2 -= 20;
+            renderNode('DEATH_O2'); 
         }
         return;
     }
-    if (currentNodeId === 'CORRIDOR_RUN' && cleanInput === 'RETURN FIRE') {
-        renderNode('RADAR_INIT');
-        return;
-    }
-    if (cleanInput === 'LEDGER' && (currentNodeId === 'SUB_LEVEL_SAFE' || currentNodeId === 'SUB_LEVEL_HOT')) {
-        renderNode('LEDGER_REVEAL'); return;
-    }
-    
+
     if (cleanInput === 'LEDGER') {
         if (!hasLedger) {
             outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED — NO DIAGNOSTIC HARDWARE DETECTED</span><br>";
@@ -715,7 +724,6 @@ function handleInput(rawCmd) {
         return;
     } 
 
-    // Explicit Node Commands Processing
     if (node.commands && node.commands[cleanInput]) { 
         renderNode(node.commands[cleanInput]); 
     } else {
