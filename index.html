@@ -31,6 +31,17 @@
         #screen::after { content:" "; display:block; position:absolute; top:0; left:0; bottom:0; right:0; background:linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); z-index:4; background-size:100% 3px; pointer-events:none; }
         #screen::before { content:" "; display:block; position:absolute; top:0; left:0; width:100%; height:100%; background:radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.85) 100%); z-index:5; pointer-events:none; }
         
+        /* HARDWARE VOLATILITY CSS */
+        .glitch-anim { animation: rgbShift 0.1s infinite alternate, skewGlitch 0.2s infinite alternate; }
+        @keyframes rgbShift {
+            0% { text-shadow: 3px 0 0 #ff0000, -3px 0 0 #0000ff; }
+            100% { text-shadow: -3px 0 0 #ff0000, 3px 0 0 #0000ff; }
+        }
+        @keyframes skewGlitch {
+            0% { transform: skewX(2deg); }
+            100% { transform: skewX(-2deg); }
+        }
+        
         #top-metrics { position:absolute; top:30px; right:30px; text-align:right; font-size:1.4rem; color:#4a8b99; z-index:10; display:none; border:1px solid #1a2b3c; padding:10px 15px; background:rgba(2,6,11,0.8); box-shadow:0 0 10px rgba(0,0,0,0.5); }
         .metric-row { margin-bottom:5px; }
         .metric-val { color:#5bc0de; font-weight:bold; transition: color 0.3s; }
@@ -130,6 +141,11 @@ let terminalTimeout;
 let typeInterval;
 let seqTimeout; 
 let radarInterval;
+
+// Volatility Engine Variables
+let systemStability = 0; // 0: Broken, 1: Bypassed, 2: Stable
+let glitchTimeout = null;
+
 let metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
 let currentNodeId = 'OS_BOOT';
 
@@ -149,9 +165,7 @@ function initAudio() {
         const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, bufferSize, audioCtx.sampleRate);
         const noiseBuffer = offlineCtx.createBuffer(1, bufferSize, offlineCtx.sampleRate);
         const data = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1; 
-        }
+        for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
         
         const noiseSource = offlineCtx.createBufferSource();
         noiseSource.buffer = noiseBuffer;
@@ -168,9 +182,7 @@ function initAudio() {
         noiseSource.connect(filter).connect(gainNode).connect(offlineCtx.destination);
         noiseSource.start(0);
         
-        offlineCtx.startRendering().then(renderedBuffer => {
-            clickBuffer = renderedBuffer;
-        });
+        offlineCtx.startRendering().then(renderedBuffer => { clickBuffer = renderedBuffer; });
     }
     if (audioCtx.state === 'suspended') audioCtx.resume();
 }
@@ -191,14 +203,12 @@ function playAudioTone(type) {
     } else if (type === 'key' && clickBuffer) {
         const source = audioCtx.createBufferSource();
         source.buffer = clickBuffer;
-        // AI keystroke: rapid, lighter clack
         source.playbackRate.value = 0.8 + Math.random() * 0.4; 
         source.connect(audioCtx.destination);
         source.start(t);
     } else if (type === 'player_key' && clickBuffer) {
         const source = audioCtx.createBufferSource();
         source.buffer = clickBuffer;
-        // Player keystroke: heavier, deeper physical clunk
         source.playbackRate.value = 0.5 + Math.random() * 0.3; 
         source.connect(audioCtx.destination);
         source.start(t);
@@ -211,7 +221,75 @@ function playAudioTone(type) {
         gain.gain.setValueAtTime(0.2, t); 
         gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
         osc.start(t); osc.stop(t + 0.2);
+    } else if (type === 'glitch' && clickBuffer) {
+        const source = audioCtx.createBufferSource();
+        source.buffer = clickBuffer;
+        source.loop = true;
+        source.playbackRate.value = 0.2 + Math.random() * 0.5; 
+        
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 300 + Math.random() * 2000;
+        
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.8, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+        
+        source.connect(filter).connect(gain).connect(audioCtx.destination);
+        source.start(t);
+        source.stop(t + 0.4);
     }
+}
+
+// Volatility Engine Logic
+function scheduleGlitch() {
+    if (systemStability >= 2 || state !== 'ACTIVE') return;
+    let delay = systemStability === 0 ? 3000 + Math.random() * 4000 : 7000 + Math.random() * 5000;
+    clearTimeout(glitchTimeout);
+    glitchTimeout = setTimeout(triggerGlitch, delay);
+}
+
+function triggerGlitch() {
+    if (systemStability >= 2 || state !== 'ACTIVE') return;
+    
+    // Defer glitch if narrative text is currently rendering to prevent DOM collision
+    if (isTyping) {
+        glitchTimeout = setTimeout(triggerGlitch, 1000);
+        return;
+    }
+    
+    isTyping = true;
+    inputField.disabled = true;
+    
+    let glitchChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()<>{}[]X";
+    let span = document.createElement('span');
+    span.className = 'critical-err';
+    outputDiv.appendChild(document.createElement('br'));
+    outputDiv.appendChild(span);
+    
+    document.getElementById('screen').classList.add('glitch-anim');
+    playAudioTone('glitch');
+    
+    let count = 0;
+    let maxCount = systemStability === 0 ? Math.floor(Math.random() * 40 + 30) : Math.floor(Math.random() * 15 + 10);
+    
+    let gInterval = setInterval(() => {
+        span.textContent += glitchChars.charAt(Math.floor(Math.random() * glitchChars.length));
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        count++;
+        
+        if (count >= maxCount) {
+            clearInterval(gInterval);
+            span.textContent += " [BUS_RECOVERED]";
+            document.getElementById('screen').classList.remove('glitch-anim');
+            outputDiv.appendChild(document.createElement('br'));
+            
+            isTyping = false;
+            inputField.disabled = false;
+            inputField.focus();
+            scheduleGlitch();
+        }
+    }, 15);
 }
 
 const storyNodes = {
@@ -232,19 +310,21 @@ const storyNodes = {
         choices: { '1': 'CABLE_RESEAT', '2': 'SOFTWARE_BYPASS' }
     },
     'CABLE_RESEAT': {
+        effect: () => { systemStability = 1; },
         actionText: "Tungsten knuckles dent the reinforced terminal chassis. The CRT glass shudders, static cascades down the phosphor, and the internal optical bus clicks into alignment. The main klaxon dies abruptly, leaving only the whine of a blown audio capacitor.",
         aiText: "[SYS_MSG]: BUS ALIGNED. AUDIO SUBSYSTEM FAILURE DETECTED.",
         prompt: "[1] SYNC AUDIO TO SUIT HELMET COMMS",
         choices: { '1': 'SYNC_COMMS' }
     },
     'SOFTWARE_BYPASS': {
-        effect: () => { metrics.pwr -= 10; },
+        effect: () => { metrics.pwr -= 10; systemStability = 1; },
         actionText: "The suit's copper-tipped diagnostic tether rams into the exposed service port. Sparks shower the deck as a massive amperage spike dumps directly into the logic board, bridging the physical lockout. The klaxon dies, replaced by the whine of a blown audio capacitor.",
         aiText: "[SYS_MSG]: UNAUTHORIZED BYPASS LOGGED. AUDIO SUBSYSTEM FAILURE DETECTED.",
         prompt: "[1] SYNC AUDIO TO SUIT HELMET COMMS",
         choices: { '1': 'SYNC_COMMS' }
     },
     'SYNC_COMMS': {
+        effect: () => { systemStability = 2; clearTimeout(glitchTimeout); },
         aiText: "[PMD_VOICE]: Comm-link established. Good cycle, Resident. Internal sensors detect a critical atmospheric anomaly in Sector 3. Ambient pressure dropping rapidly. Do not exit your quarters.\n\nDirective: Use your suit's thermal welder to fuse the bulkhead. This consumes 30% of your suit's localized battery, but establishes a secure quarantine perimeter.",
         prompt: "[1] WELD BULKHEAD (-30 PWR) | [2] OVERRIDE MAG-LOCK AND RUN (-10 O2)",
         choices: { '1': 'WELD_DOOR', '2': 'CORRIDOR_RUN' }
@@ -611,11 +691,13 @@ powerButton.addEventListener('click', () => {
     metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
     hasLedger = false;
     isTyping = false;
+    systemStability = 0;
     
     clearInterval(typeInterval);
     clearTimeout(terminalTimeout);
     clearTimeout(seqTimeout); 
     clearInterval(radarInterval);
+    clearTimeout(glitchTimeout);
     centerWarning.style.display = 'none';
 
     powerButton.classList.add('active');
@@ -630,11 +712,11 @@ powerButton.addEventListener('click', () => {
         metricsPanel.style.display = 'block';
         updateMetrics(); 
         renderNode('OS_BOOT');
+        scheduleGlitch();
     }, 1800);
 });
 
 inputField.addEventListener('keydown', function(e) {
-    // Only fire tactile sound for actual character keys or backspace
     if ((e.key.length === 1 || e.key === 'Backspace') && state !== 'OFF' && state !== 'HALTED') {
         playAudioTone('player_key');
     }
