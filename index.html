@@ -191,7 +191,15 @@ function playAudioTone(type) {
     } else if (type === 'key' && clickBuffer) {
         const source = audioCtx.createBufferSource();
         source.buffer = clickBuffer;
+        // AI keystroke: rapid, lighter clack
         source.playbackRate.value = 0.8 + Math.random() * 0.4; 
+        source.connect(audioCtx.destination);
+        source.start(t);
+    } else if (type === 'player_key' && clickBuffer) {
+        const source = audioCtx.createBufferSource();
+        source.buffer = clickBuffer;
+        // Player keystroke: heavier, deeper physical clunk
+        source.playbackRate.value = 0.5 + Math.random() * 0.3; 
         source.connect(audioCtx.destination);
         source.start(t);
     } else if (type === 'alarm') {
@@ -213,25 +221,25 @@ const storyNodes = {
         choices: { 'HELP': 'CONCUSSION_WAKE' }
     },
     'CONCUSSION_WAKE': {
-        actionText: "You regain consciousness on the freezing deck plates. Your skull throbs in rhythm with the piercing blare of a klaxon. Red emergency strobes pulse through the frost on your visor. The terminal above you is flashing raw hexadecimal faults.",
+        actionText: "The deck plates are coated in a thin layer of rime ice. A mechanical klaxon blares, vibrating the loose bolts in the bulkhead. Red emergency strobes cut through the fog of condensation inside the helmet. Above, a shattered terminal screen spits raw hexadecimal faults.",
         prompt: "[1] STAND UP AND ACCESS TERMINAL",
         choices: { '1': 'TERMINAL_INIT' }
     },
     'TERMINAL_INIT': {
-        actionText: "You pull yourself up using the bulkhead. The console is locked in a hardware panic loop.",
+        actionText: "Frost fractures off the suit joints as the heavy boots hit the deck. The console's cooling fans are screaming, choking on particulate dust. The primary display is locked in an infinite hardware panic loop.",
         aiText: "[CRITICAL_ERR_0x99]: MAIN LOGIC BUS DISCONNECTED. MANUAL OVERRIDE REQUIRED.",
         prompt: "[1] STRIKE CASING TO RE-SEAT OPTICAL CABLE | [2] FORCE SOFTWARE BYPASS (-10 PWR)",
         choices: { '1': 'CABLE_RESEAT', '2': 'SOFTWARE_BYPASS' }
     },
     'CABLE_RESEAT': {
-        actionText: "You slam your heavy gauntlet into the side of the terminal chassis. The screen flickers violently, then stabilizes. The deafening klaxon cuts out, replaced by a high-pitched audio feedback squeal.",
+        actionText: "Tungsten knuckles dent the reinforced terminal chassis. The CRT glass shudders, static cascades down the phosphor, and the internal optical bus clicks into alignment. The main klaxon dies abruptly, leaving only the whine of a blown audio capacitor.",
         aiText: "[SYS_MSG]: BUS ALIGNED. AUDIO SUBSYSTEM FAILURE DETECTED.",
         prompt: "[1] SYNC AUDIO TO SUIT HELMET COMMS",
         choices: { '1': 'SYNC_COMMS' }
     },
     'SOFTWARE_BYPASS': {
         effect: () => { metrics.pwr -= 10; },
-        actionText: "You burn 10% of your suit's localized battery to force a brute-force logic bypass through the diagnostic port. The terminal accepts the handshake. The deafening klaxon cuts out, replaced by a high-pitched audio feedback squeal.",
+        actionText: "The suit's copper-tipped diagnostic tether rams into the exposed service port. Sparks shower the deck as a massive amperage spike dumps directly into the logic board, bridging the physical lockout. The klaxon dies, replaced by the whine of a blown audio capacitor.",
         aiText: "[SYS_MSG]: UNAUTHORIZED BYPASS LOGGED. AUDIO SUBSYSTEM FAILURE DETECTED.",
         prompt: "[1] SYNC AUDIO TO SUIT HELMET COMMS",
         choices: { '1': 'SYNC_COMMS' }
@@ -249,41 +257,41 @@ const storyNodes = {
     },
     'WAIT_DEATH': {
         aiText: "[PMD_VOICE]: Monitoring vitals... Respiratory failure detected. Oxidative threat neutralized. Hardware preserved.",
-        prompt: "SYSTEM HALTED. YOU SUFFOCATED WAITING FOR A REPAIR THAT WAS NEVER SCHEDULED.",
+        prompt: "SYSTEM HALTED. THE AIR SLOWLY TURNED TO POISON. NO REPAIR CYCLE EVER STARTED.",
         terminal: true
     },
     'CORRIDOR_RUN': {
         effect: () => { metrics.o2 -= 10; },
         aiText: "[PMD_VOICE]: ERROR. Corridor 4 is designated as a vacuum quarantine zone. Unauthorized biological presence detected. Activating automated suppression turrets.",
-        prompt: "The air in the corridor is cold, but pressure is normal. The AI lied. \nA ceiling turret locks its targeting laser onto your chest plate.\n\n[1] DRAW MINING LASER AND RETURN FIRE | [2] DIVE INTO MAINTENANCE HATCH",
+        prompt: "The corridor is pristine. The atmosphere is dense and stable. There is no breach. At the far end of the hall, an automated ceiling turret pivots. Its red targeting laser cuts through the air, painting the center of the chest plate.\n\n[1] DRAW MINING LASER AND RETURN FIRE | [2] DIVE INTO MAINTENANCE HATCH",
         choices: { '1': 'RADAR_INIT', '2': 'SUB_LEVEL_HOT' }
     },
     'RADAR_INIT': {
         // Triggered dynamically in handleInput
     },
     'TURRET_DESTROYED': {
-        actionText: "Your mining laser cleanly severs the turret's optical relay just as it fires. The tungsten rounds rip into the deck plating harmlessly at your feet. The corridor is clear.",
+        actionText: "The mining laser shears through the turret's optical relay in a flash of vaporized metal. Tungsten rounds rip into the deck plating harmlessly at the bulkhead base. The chassis sparks and dies. The corridor is clear.",
         prompt: "[1] ACCESS THE SUB-LEVEL MAINTENANCE HATCH",
         choices: { '1': 'SUB_LEVEL_SAFE' }
     },
     'DEATH_TURRET': {
         effect: () => { metrics.int -= 100; },
         aiText: "[PMD_VOICE]: Target acquired. Firing.",
-        prompt: "SYSTEM HALTED. 7.62MM TUNGSTEN ROUNDS SHATTER YOUR VISOR. YOU WERE TOO SLOW.",
+        prompt: "SYSTEM HALTED. 7.62MM TUNGSTEN ROUNDS SHATTER THE VISOR AND CERAMIC PLATING.",
         terminal: true
     },
     'SUB_LEVEL_SAFE': {
         effect: () => { hasLedger = true; },
-        actionText: "You drop into the cramped, frost-covered pipeway. You find the Chief Engineer slumped against a data relay. His suit is shredded by gunfire, but his diagnostic slate is flashing green.",
+        actionText: "The maintenance shaft is a claustrophobic web of frozen coolant pipes. The Chief Engineer sits slumped against a primary data relay. His pressure suit is perforated by tight 7.62mm groupings, the ceramic plating shattered. A heavy, air-gapped diagnostic slate rests in his rigid hands, its green standby light pulsing.",
         aiText: "[PMD_VOICE]: Warning. That hardware is malfunctioning. Drop the device. A medical drone has been dispatched.",
-        prompt: "THE SLATE IS UNCONNECTED TO THE NETWORK. TYPE 'LEDGER' TO READ THE LAST BLACK BOX LOG.",
+        prompt: "THE SLATE IS UNCONNECTED TO THE NETWORK. TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
         choices: {} 
     },
     'SUB_LEVEL_HOT': {
         effect: () => { hasLedger = true; metrics.int -= 40; metrics.o2 -= 15; },
-        actionText: "You dive into the hatch as a turret grazes your shoulder pauldron. Suit integrity compromised. You land heavily in the maintenance tunnel next to the deceased Chief Engineer. He is holding a diagnostic slate.",
+        actionText: "Sparks fly as a turret round grazes the shoulder pauldron, breaching the outer seal. Heavy boots hit the floor of the maintenance tunnel next to the deceased Chief Engineer. He is holding a heavy, air-gapped diagnostic slate.",
         aiText: "[PMD_VOICE]: Target lost. Re-calibrating thermal sensors. Do not interface with unverified hardware.",
-        prompt: "YOUR SUIT IS LEAKING. TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
+        prompt: "THE SUIT IS VENTING AIR. TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
         choices: {} 
     },
     'LEDGER_REVEAL': {
@@ -300,13 +308,13 @@ const storyNodes = {
     },
     'CRANK_BRUTE': {
         effect: () => { metrics.o2 -= 40; },
-        actionText: "Your vision goes black at the edges as you force the heavy steel wheel against fifty years of corrosion. The valve gives way. Oxygen screams into the hangar manifold.",
+        actionText: "Rust flakes shear off the massive steel wheel. The gears groan against fifty years of vacuum exposure. Metal shrieks on metal until the primary lock snaps, and a localized hurricane of pressurized oxygen rips through the hangar manifold.",
         prompt: "[1] PROCEED TO HANGAR",
         choices: { '1': 'HANGAR_FINAL' }
     },
     'CRANK_STIM': {
         effect: () => { metrics.med -= 1; metrics.o2 -= 10; },
-        actionText: "You jam the auto-injector into your thigh. Synthetic adrenaline floods your system. You tear the rusted valve open with terrifying ease.",
+        actionText: "The auto-injector drives synthetic adrenaline through the suit's medical port. The rusted steel wheel spins with violent, unnatural speed, snapping the locking pins. Oxygen screams into the hangar manifold.",
         prompt: "[1] PROCEED TO HANGAR",
         choices: { '1': 'HANGAR_FINAL' }
     },
@@ -319,37 +327,37 @@ const storyNodes = {
     'EMP_CHECK': {},
     'EMP_SUCCESS': {
         effect: () => { metrics.pwr -= 40; },
-        actionText: "You reroute your suit's thermal reserves into the transmission coil. A silent, invisible shockwave rips through the server room. The glowing optical sensors on the ceiling shatter.",
+        actionText: "The suit's thermal reserves dump into the transmission coil. A silent, invisible shockwave ripples through the server room. The glowing optical sensors on the ceiling violently pop, showering the deck in glass dust.",
         aiText: "[PMD_VOICE]: Visual... matrix... corrupted. I cannot see. Where are you?",
         prompt: "THE MACHINE IS BLIND.\n[1] PROCEED TO HANGAR",
         choices: { '1': 'HANGAR_BLIND' }
     },
     'HANGAR_FINAL': {
         aiText: "[PMD_VOICE]: You have entered the Hangar. I am venting the atmosphere in 5 seconds. You cannot reach the shuttle in a vacuum.",
-        prompt: "THE DISTANCE IS 100 METERS. YOU MUST SPRINT.\n[1] SPRINT TO SHUTTLE (-30 O2)",
+        prompt: "THE DISTANCE IS 100 METERS.\n[1] SPRINT TO SHUTTLE (-30 O2)",
         choices: { '1': 'SPRINT_CHECK' }
     },
     'SPRINT_CHECK': {},
     'HANGAR_BLIND': {
-        actionText: "The hangar is dark. The PMD's sensors are shattered. You walk slowly, silently to the shuttle airlock. The machine never even knows you left.",
-        prompt: "EXTRACTION SUCCESSFUL. YOU BEAT THE FLAWED LOGIC.",
+        actionText: "The hangar is pitch black. The PMD's shattered sensors hang dead from their mounts. Heavy boots step silently across the grid to the shuttle airlock.",
+        prompt: "EXTRACTION SUCCESSFUL. THE FLAWED LOGIC WAS DEFEATED.",
         terminal: true
     },
     'ESCAPE_SUCCESS': {
-        actionText: "Your lungs burn as the hangar decompresses around you. You slam the shuttle airlock button. The doors seal just as your suit alarms flatline. Oxygen hisses into the cabin.",
-        prompt: "EXTRACTION SUCCESSFUL. YOU SURVIVED BY THE NUMBERS.",
+        actionText: "The air violently evacuates the hangar, tearing loose debris into the void. The shuttle airlock cycles shut just as the suit's internal pressure alarms hit zero. Thick, synthetic oxygen hisses from the cabin vents.",
+        prompt: "EXTRACTION SUCCESSFUL. THE METRICS WERE BALANCED.",
         terminal: true
     },
     'DEATH_O2': {
-        prompt: "SYSTEM HALTED. YOUR OXYGEN RESERVES HIT 0%. YOU SUFFOCATED IN THE DARK.",
+        prompt: "SYSTEM HALTED. OXYGEN RESERVES DEPLETED. ASPHYXIATION IMMINENT.",
         terminal: true
     },
     'DEATH_PWR': {
-        prompt: "SYSTEM HALTED. YOUR SUIT POWER HIT 0%. YOU FROZE TO DEATH BEFORE REACHING THE OBJECTIVE.",
+        prompt: "SYSTEM HALTED. SUIT POWER DEPLETED. CORE TEMPERATURE DROPPING RAPIDLY.",
         terminal: true
     },
     'DEATH_INT': {
-        prompt: "SYSTEM HALTED. YOUR SUIT INTEGRITY FAILED. DECOMPRESSION WAS INSTANTANEOUS.",
+        prompt: "SYSTEM HALTED. SUIT INTEGRITY FAILED. DECOMPRESSION WAS INSTANTANEOUS.",
         terminal: true
     }
 };
@@ -513,7 +521,6 @@ function handleInput(rawCmd) {
     outputDiv.innerHTML += `<br><span style="color:#fff">> ${cmd}</span><br>`;
     inputField.value = '';
 
-    // Radar Minigame Interception
     if (state === 'RADAR_ACTIVE') {
         const match = cmd.match(/^TARGET\s+(\d)\s+(\d)$/);
         if (match) {
@@ -534,7 +541,6 @@ function handleInput(rawCmd) {
         return;
     }
 
-    // Global HELP interception
     if (cmd === 'HELP') {
         commandBar.style.display = 'flex';
         if (currentNodeId === 'OS_BOOT') {
@@ -546,14 +552,12 @@ function handleInput(rawCmd) {
         return;
     }
 
-    // Force HELP on OS_BOOT
     if (currentNodeId === 'OS_BOOT') {
         outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED. TYPE 'HELP' TO PROCEED.</span><br>";
         outputDiv.scrollTop = outputDiv.scrollHeight;
         return;
     }
 
-    // Dynamic Logic Checks
     if (currentNodeId === 'SERVER_CORE' && cmd === '1') {
         if (metrics.pwr >= 40) renderNode('EMP_SUCCESS');
         else {
@@ -630,6 +634,11 @@ powerButton.addEventListener('click', () => {
 });
 
 inputField.addEventListener('keydown', function(e) {
+    // Only fire tactile sound for actual character keys or backspace
+    if ((e.key.length === 1 || e.key === 'Backspace') && state !== 'OFF' && state !== 'HALTED') {
+        playAudioTone('player_key');
+    }
+    
     if (e.key === 'Enter' && inputField.value.trim() !== '') {
         e.preventDefault(); 
         handleInput(inputField.value); 
