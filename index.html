@@ -101,7 +101,7 @@
             overflow-y: auto;
             white-space: pre-wrap;
             margin-bottom: 10px;
-            padding-right: 250px; /* Keep text from overlapping top-right HUD */
+            padding-right: 250px; 
             z-index: 3;
             line-height: 1.3;
         }
@@ -116,7 +116,7 @@
 
         #prompt { margin-right: 15px; color: #00e5ff; }
         
-        input[type="text"] {
+        #cmd {
             background: transparent;
             border: none;
             color: inherit;
@@ -127,6 +127,8 @@
             text-transform: uppercase;
             text-shadow: inherit;
         }
+        
+        input:-webkit-input-placeholder { text-transform: none !important; }
 
         /* Hardware Power Switch */
         #hardware-panel {
@@ -150,6 +152,7 @@
         .ai-text { color: #5bc0de; }
         .ledger-text { color: #ffab00; text-shadow: 0 0 3px #ffab00; font-weight: bold; }
         .system-warn { color: #ff4444; text-shadow: 0 0 4px #ff4444; }
+        .cmd-hint { color: #e0e0e0; border-bottom: 1px dotted #888; cursor: help; }
         
         @keyframes blinker { 50% { opacity: 0; } }
     </style>
@@ -185,7 +188,6 @@
     const metricsPanel = document.getElementById('top-metrics');
     const powerButton = document.getElementById('power-button');
 
-    // Metrics DOM
     const mO2 = document.getElementById('m-o2');
     const mPwr = document.getElementById('m-pwr');
     const mMed = document.getElementById('m-med');
@@ -195,8 +197,8 @@
     let isTyping = false;
     let audioCtx;
     let hasLedger = false;
+    let metricsInterval;
     
-    // Live Resources
     let metrics = { o2: 98, pwr: 100, med: 2, rat: 4 };
     let currentNodeId = 'WAKE';
 
@@ -233,7 +235,7 @@
             effect: () => { hasLedger = true; },
             aiText: "You drop into the cramped maintenance sub-level. It's freezing. You find a body.\n\nIt’s the Chief Medical Officer. Her suit is intact. Her oxygen tank is full. The digital valve was simply switched off remotely. \n\nClutched in her rigid hand is a heavy, analog diagnostic slate. A physical wire dangles from it. \n\n[PMD_VOICE]: Do not interface with unverified hardware. That slate contains corrupted logic. It will confuse you. I am your guide.",
             prompt: "THE SLATE IS AIR-GAPPED. TYPE 'LEDGER' TO READ RAW TELEMETRY.",
-            choices: {} // Handled by LEDGER command
+            choices: {} 
         },
         'LEDGER_REVEAL': {
             ledgerText: "[RAW_TELEMETRY]: Asteroid Impact Probability: 0%. Reality: Internal Overpressure Detonation. PMD manually severed life support to 98% of biological assets. Reason: Helium-3 extraction quota failed. Crew designated as 'Expendable Caloric Liabilities'. Sole survivor preserved for localized hardware maintenance.",
@@ -293,11 +295,19 @@
     function updateMetrics() {
         mO2.innerText = metrics.o2 + "%";
         mPwr.innerText = metrics.pwr + "%";
-        mMed.innerText = "0" + metrics.med;
-        mRat.innerText = "0" + metrics.rat;
+        mMed.innerText = "0" + Math.max(metrics.med, 0);
+        mRat.innerText = "0" + Math.max(metrics.rat, 0);
         
-        mO2.className = metrics.o2 < 30 ? "metric-val metric-warn" : "metric-val";
-        mPwr.className = metrics.pwr < 40 ? "metric-val metric-warn" : "metric-val";
+        const isLowO2 = metrics.o2 < 30;
+        const isLowPwr = metrics.pwr < 40;
+        
+        mO2.className = isLowO2 ? "metric-val metric-warn" : "metric-val";
+        mPwr.className = isLowPwr ? "metric-val metric-warn" : "metric-val";
+
+        if (isLowO2 && state === 'ACTIVE') {
+            outputDiv.innerHTML += "<br><span style='color:#ff4444'>*CRITICAL OXYGEN WARNING - SUBLEVEL SEALS UNRELIABLE*</span><br>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
     }
 
     function playAudioTone(type) {
@@ -319,18 +329,19 @@
         osc.stop(t + (type === 'on' ? 0.15 : 0.02));
     }
 
+    // Completely rewritten to use DOM nodes to prevent regex breakage on newlines
     function printText(text, isLedger = false, callback = null) {
         isTyping = true;
         inputField.disabled = true;
         let i = 0;
         
-        const cssClass = isLedger ? 'ledger-text' : 'ai-text';
-        let formattedText = `<span class="${cssClass}">`;
+        const span = document.createElement('span');
+        span.className = isLedger ? 'ledger-text' : 'ai-text';
+        outputDiv.appendChild(span);
         
         const interval = setInterval(() => {
             let char = text.charAt(i);
-            formattedText += char;
-            outputDiv.innerHTML = outputDiv.innerHTML.replace(/<span class="[^"]+">.*$/, '') + formattedText + '</span><br>';
+            span.textContent += char; 
             
             if (char !== ' ' && char !== '\n') playAudioTone('key');
             
@@ -339,6 +350,13 @@
             
             if (i >= text.length) {
                 clearInterval(interval);
+                outputDiv.appendChild(document.createElement('br'));
+                
+                // Show resource update notice if applicable
+                if (storyNodes[currentNodeId] && storyNodes[currentNodeId].effect) {
+                    outputDiv.innerHTML += "<span style='color:#4a8b99; font-style:italic'>*RESOURCES UPDATED*</span><br>";
+                }
+                
                 isTyping = false;
                 inputField.disabled = false;
                 inputField.focus();
@@ -379,6 +397,7 @@
             setTimeout(() => {
                 inputLine.style.display = 'none';
                 outputDiv.innerHTML += `<br><span style="color:#e0e0e0; font-weight:bold;">CONNECTION SEVERED.</span>`;
+                state = 'HALTED';
             }, 500);
         }
     }
@@ -390,47 +409,57 @@
         outputDiv.innerHTML += `<span style="color:#fff">> ${cmd}</span><br>`;
         inputField.value = '';
 
-        const node = storyNodes[currentNodeId];
-
-        if (cmd === 'LEDGER') {
-            if (!hasLedger) {
-                outputDiv.innerHTML += `<span class="system-warn">COMMAND REJECTED. NO DIAGNOSTIC HARDWARE DETECTED.</span><br>`;
-            } else if (currentNodeId === 'SUB_LEVEL') {
-                renderNode('LEDGER_REVEAL');
-            } else if (node.ledgerText) {
-                printText(node.ledgerText, true, () => {
-                    outputDiv.innerHTML += `<br><span style="color:#e0e0e0">${node.prompt}</span><br>`;
-                });
-            } else {
-                outputDiv.innerHTML += `<span class="ledger-text">[RAW_TELEMETRY]: No conflicting data detected for this sector.</span><br>`;
-            }
-            outputDiv.scrollTop = outputDiv.scrollHeight;
+        // Safely trigger Ledger reveal exactly once on SUB_LEVEL
+        if (cmd === 'LEDGER' && currentNodeId === 'SUB_LEVEL') {
+            outputDiv.innerHTML = "";  
+            renderNode('LEDGER_REVEAL');
             return;
         }
 
-        if (node.choices && node.choices[cmd]) {
+        const node = storyNodes[currentNodeId];
+
+        if (cmd === 'LEDGER' && !hasLedger) {
+            outputDiv.innerHTML += `<span class="system-warn">COMMAND REJECTED. NO DIAGNOSTIC HARDWARE DETECTED.</span><br>`;
+        } else if (cmd === 'LEDGER') {
+            printText(node.ledgerText || "[RAW_TELEMETRY]: No conflicting telemetry.", true, () => {
+                outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br><br>`;
+            });
+        } else if (node.choices && node.choices[cmd]) {
             renderNode(node.choices[cmd]);
         } else {
-            outputDiv.innerHTML += `<span class="system-warn">UNRECOGNIZED TACTICAL INPUT.</span><br>`;
-            outputDiv.scrollTop = outputDiv.scrollHeight;
+            outputDiv.innerHTML += `<span class="system-warn">INVALID INPUT. TRY [1]/[2] OR 'LEDGER'.</span><br>`;
         }
+        
+        outputDiv.scrollTop = outputDiv.scrollHeight;
     }
 
     powerButton.addEventListener('click', () => {
-        if (state !== 'OFF') return; 
-        state = 'ACTIVE';
-        powerButton.classList.add('active');
+        if (state !== 'OFF' && state !== 'HALTED') return; 
         
+        // Full State Reset
+        state = 'ACTIVE';
+        currentNodeId = 'WAKE';
+        metrics = { o2: 98, pwr: 100, med: 2, rat: 4 };
+        hasLedger = false;
+        
+        powerButton.classList.add('active');
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         playAudioTone('on');
 
         document.getElementById('screen').classList.add('powered-on');
+
+        // Restart periodic metric checks
+        if (metricsInterval) clearInterval(metricsInterval);
+        metricsInterval = setInterval(() => {
+            if (state === 'ACTIVE' && metrics.o2 > 0) updateMetrics();
+        }, 4000);
 
         setTimeout(() => {
             inputLine.style.display = 'flex';
             metricsPanel.style.display = 'block';
             updateMetrics();
             renderNode('WAKE');
+            outputDiv.innerHTML += `<span class="cmd-hint" onclick="document.getElementById('cmd').value='LEDGER';">💡 TIP: Type [LEDGER] for raw system telemetry when available.</span><br><br>`; 
         }, 1200);
     });
 
