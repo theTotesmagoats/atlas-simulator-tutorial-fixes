@@ -2,409 +2,612 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MOON_BASE_TERMINAL v2 • AIRLOCK A-7</title>
+    <title>Terminal Mk V - Archimedes Base</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <style>
-        /* === FULLSCREEN TERMINAL UI (CRT MODE) === */
         body {
-            margin: 0; 
-            background: #0a0c08;
-            color: #e9f4cf; 
-            font-family: 'Courier New', monospace;
-            overflow: hidden; /* full screen */
+            background-color: #010409;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+            user-select: none;
         }
 
-        /* The main window, full screen, centered with subtle borders */
-        #terminal {
-            position: fixed;
-            top: 2vh; left: 2vw; right: 2vw; bottom: 6vh;
-            padding: 1.5rem; 
-            background: linear-gradient(180deg,
-                        #171914, /* deep monitor black */
-                        #11130f
-                      );
-            border: 3px double rgba(126,145,118, 0.9);
-            border-radius: 1.8rem;
-            box-shadow:
-                inset 0 0 250px #0b0e07,
-                0 0 5vw rgba(0,255,90,0.12);
+        #chassis {
+            background-color: #111418;
+            width: 96vw;
+            height: 96vh;
+            padding: 40px 40px 80px 40px; 
+            border-radius: 12px;
+            box-sizing: border-box;
+            box-shadow: inset 0 0 30px #000, 0 0 50px rgba(0,229,255,0.05);
+            border: 8px solid #080a0c;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.05s, border-color 0.3s;
+        }
+
+        .rivet {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #222;
+            border-radius: 50%;
+            box-shadow: inset 2px 2px 4px #444, inset -2px -2px 4px #000;
+        }
+        .r-tl { top: 12px; left: 12px; }
+        .r-tr { top: 12px; right: 12px; }
+        .r-bl { bottom: 12px; left: 12px; }
+        .r-br { bottom: 12px; right: 12px; }
+
+        #hardware-panel {
+            position: absolute;
+            bottom: 15px;
+            right: 40px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
         
-        /* CRT scanlines and bloom glow */
-        #terminal::after {
-            content:"";
-            position: absolute; inset:0;
-            pointer-events: none; 
-            background: linear-gradient(to bottom, 
-                        rgba(255,255,255,0.04) 1px, 
-                        transparent 1px),
-                        linear-gradient(90deg, 
-                        rgba(255,255,255,0.03) 1px,
-                        transparent 1px);
-            background-size: 100% 3px, 4px 100%;
-            border-radius: inherit;
+        .panel-label {
+            color: #4a6b7c;
+            font-family: sans-serif;
+            font-size: 0.8rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow: -1px -1px 1px #000;
         }
-        /* screen curvature glow */
-        #terminal::before {
-            content:"";
-            position:absolute; inset:-6px; pointer-events:none; 
-            background: radial-gradient(ellipse at center,
-                    rgba(0,0,0,0) 48%, rgba(100,255,90,0.04) 82%);
-            border-radius: inherit;
-            z-index: -1;
+
+        #power-button-housing {
+            width: 50px;
+            height: 50px;
+            background: #080a0c;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #000, inset 2px 2px 5px #1a2229, inset -2px -2px 5px #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        
-        /* Screen flicker effect (gentle but persistent) */
+
+        #power-button {
+            width: 36px;
+            height: 36px;
+            background: #102a3a; 
+            border-radius: 50%;
+            box-shadow: inset 2px 2px 4px #1c4966, inset -2px -2px 4px #050d12, 2px 2px 5px rgba(0,0,0,0.8);
+            color: #0a1b26; 
+            font-family: sans-serif;
+            font-size: 18px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        #power-button.active {
+            box-shadow: inset 2px 2px 6px #050d12, inset -2px -2px 6px #1c4966, 0 0 2px #000;
+            transform: scale(0.95);
+            color: #00e5ff;
+            text-shadow: 0 0 5px #00e5ff;
+        }
+
+        #screen {
+            background: #010812;
+            width: 100%;
+            height: 100%;
+            border-radius: 4px; 
+            padding: 35px;
+            box-sizing: border-box;
+            box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(0,229,255,0.05);
+            border: 4px solid #031424;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: #00e5ff; 
+            text-shadow: 0 0 3px #00e5ff, 0 0 8px rgba(0, 229, 255, 0.4); 
+            font-size: 1.8rem;
+            letter-spacing: 1.5px;
+            animation: flicker 0.15s infinite;
+            
+            opacity: 0;
+            transition: opacity 1.5s ease-in;
+        }
+
+        #screen.powered-on {
+            opacity: 1;
+        }
+
+        @keyframes alertPulse {
+            0% { box-shadow: inset 0 0 80px rgba(0,0,0,1); border-color: #031424; }
+            50% { box-shadow: inset 0 0 120px rgba(255, 171, 0, 0.2); border-color: #ffab00; }
+            100% { box-shadow: inset 0 0 80px rgba(0,0,0,1); border-color: #031424; }
+        }
+        .alert-active {
+            animation: alertPulse 1.5s infinite !important;
+            color: #ffab00 !important;
+            text-shadow: 0 0 4px #ffab00 !important;
+        }
+
+        .power-loss {
+            background: #000 !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+        }
+        .power-loss::after, .power-loss::before {
+            display: none !important;
+        }
+
         @keyframes flicker {
-            0%   {opacity: .99; }
-            2%   {opacity: .93; }
-            4%   {opacity: .97; }
-            100% {opacity: .99; }
+            0% { opacity: 0.98; }
+            50% { opacity: 1; }
+            100% { opacity: 0.99; }
         }
-        #boot, #history, #input-line {
-            animation: flicker 8s infinite;
+
+        #screen::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+            z-index: 4;
+            background-size: 100% 3px;
+            pointer-events: none;
+        }
+
+        #screen::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.8) 100%);
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        #output {
+            flex-grow: 1;
+            overflow-y: auto;
             white-space: pre-wrap;
+            margin-bottom: 10px;
+            padding-right: 15px;
+            z-index: 3;
+            line-height: 1.3;
+            word-wrap: break-word;
         }
+
+        #input-line {
+            display: none; 
+            align-items: center;
+            font-weight: bold;
+            z-index: 3;
+            margin-bottom: 10px;
+        }
+
+        #prompt { margin-right: 15px; transition: color 0.3s; }
         
-        #boot { display: flex; flex-direction: column; gap:5px;}
-        
-        #status-bar {
-            margin-top:1.5rem; padding:6px; font-weight:bold;
-            color: #8ab9ff;
-            background: rgba(0,40,24, 0.6);
-            border: 1px solid rgba(0,180,90, 0.5); border-radius:4px;
+        .cursor-blink {
+            animation: blinker 1s linear infinite;
+            color: inherit;
+        }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        input[type="text"] {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-family: 'VT323', monospace;
+            font-size: 1em;
+            flex-grow: 1;
+            outline: none;
+            text-transform: uppercase;
+            text-shadow: inherit;
+            letter-spacing: 2px;
         }
 
-        /* Input line styling (terminal feel) */
-        #input-line { 
-            margin-top:auto; display:flex; padding: 8px;
-            background:rgba(0,0,0,0.7); 
-            font-size:1rem; align-items:center;
-        }
-        .prompt {
-            color:#4caf50; font-weight:bold; margin-right:10px;
-        }
-        input {
-            flex-grow:1;
-            border:none; outline:none; background:transparent;
-            color:white; font-family:"Courier New"; font-size: 1.1rem;
-            caret-color:#aef; padding:4px;
+        #hud-bar {
+            display: none; 
+            border-top: 2px solid #005b66;
+            padding-top: 10px;
+            margin-top: auto;
+            font-size: 1.4rem;
+            color: #5bc0de;
+            text-shadow: none;
+            z-index: 3;
+            justify-content: space-between;
+            flex-wrap: wrap;
         }
 
-        .message { margin-bottom:6px; display:block; line-height:1.5;}
-        .sys-msg { color:#4caf50; }   /* green = system */
-        .warn-text { color: #ffd700; text-shadow: 0 1px 3px #a68200; } 
-        .hint-msg { color:#cfe7ff; font-style: italic; opacity:.8;}
-
+        .hud-stat {
+            font-weight: bold;
+        }
+        .stat-critical { color: #ffab00; animation: blinker 1s infinite; }
     </style>
 </head>
+<body>
 
-<body><div id="terminal">
+<div id="chassis">
+    <div class="rivet r-tl"></div>
+    <div class="rivet r-tr"></div>
+    <div class="rivet r-bl"></div>
+    <div class="rivet r-br"></div>
+    
+    <div id="screen">
+        <div id="output"></div>
+        <div id="input-line">
+            <span id="prompt">ATLAS_SYS></span>
+            <input type="text" id="cmd" autocomplete="off">
+        </div>
+        <div id="hud-bar">
+            <span id="hud-o2" class="hud-stat">O2: 100%</span>
+            <span id="hud-pwr" class="hud-stat">PWR: 100%</span>
+            <span id="hud-hull" class="hud-stat">HULL: STABLE</span>
+            <span id="hud-crew" class="hud-stat">CREW: UNKNOWN</span>
+        </div>
+    </div>
 
-<div id="boot">
-<script>document.write(`
-Initializing…<br/>
-Memory Self-Check... PASS<br/>
-System Clock Sync (UTC)... 0945 hrs.<br/>
-Alert — E-L7 Triggered. Bulkheads Sealed.<br/>
-Survivable Atmosphere: CONFIRMED.<br/>
-Battery Backup: ACTIVE.<br/>
-Security Override: ACTIVE
-`.replace(/\n/g,'<br/>'));</script>
+    <div id="hardware-panel">
+        <span class="panel-label">SYS OVERRIDE</span>
+        <div id="power-button-housing">
+            <div id="power-button">⏻</div>
+        </div>
+    </div>
 </div>
 
-<!-- Status & history area -->
-<div id="status-bar">
-STATUS: <span class="status-indicator">O2 STABLE</span> 
-| OXYGEN LEFT: <b><span id="oxygen-display" class="oxygen-val" style="color:#ffd700;">~3h 15m</span></b>
-| COMMS STATUS: <b class="status-indicator">OFFLINE</b>
-</div>
-
-<!-- The story/history output (auto-scrolls) -->
-<div id="history" style="
-height: 58%;
-overflow-y: auto; overflow-x:hidden;
-padding-top:0.75rem;
-font-size: 1.025rem;"></div>
-
-<!-- User Input -->
-<div id="input-line">
-<span class="prompt">user@luna-airlockA7:~$</span>
-<input type="text" id="player-input" placeholder="[Type something like 'look', then hit Enter]…" autofocus>
-</div>
-
-<!-- The terminal is ready — but input box has to receive focus for the user -->
 <script>
-// 1. Boot sequence delay so you're not overwhelmed  
-function startBoot() {
-    const bootEl = document.getElementById('boot');
-    
-    setTimeout(() => bootEl.innerHTML += '<br>[BOOT COMPLETE]\n> CONNECTION ESTABLISHED', 1050);
-    
-    setTimeout(() => { // give 2 seconds after that
-        bootEl.innerHTML = "<i class='sys-msg'>[SYSTEM READY]</i>\n"; 
-    }, 3400); // full intro over in ~3.4s
-    
-    addMessage("\n> ALERT: Airlock A-7 sealed at 03:42 UTC (Event L7).\nYou are the only survivor.", "warn");
-    
-    // 3-second warning before player sees main text
-    setTimeout(() => {
-        const msgDiv = document.getElementById("history");
-        
-        // The most important lines first:
-        const welcomeText = [
-            `[Airlock A-7 — Main Chamber]`,
-            "\n• Bulkhead Door: Sealed. Warning Light Pulsing.",
-            "• Comms Console: Standby LEDs flickering (RED)",
-            "• Emergency Locker: Open, no magnets engaged.",
-            "• Tablet Dock: Screen dark, power LED dead.\n\n"
-        ];
-        
-        const nextLines = [
-            "> WARNING: You have approximately 3 hours oxygen remaining.",
-            "> SUGGESTED NEXT STEPS:", 
-            ' • Type “look console” — examine the comms unit', 
-            " • Check inventory or help for commands",
-            "\n> HINTS appear when you hover over key words like *help*, *look*, or *inventory*.\n"
-        ];
-        
-        welcomeText.forEach(l => msgDiv.innerHTML += `<span class="message sys-msg">${l}</span>\n`);
-        
-        setTimeout(() => {
-            addMessage("What should you do?","hint"); // Direct instruction!
-            
-            // Focus the input so user can start typing immediately  
-            const input = document.getElementById('player-input'); 
-            input.focus(); // this line ensures user doesn't need to click
-            
-        }, 2100);
+    const outputDiv = document.getElementById('output');
+    const inputField = document.getElementById('cmd');
+    const inputLine = document.getElementById('input-line');
+    const promptSpan = document.getElementById('prompt');
+    const hudBar = document.getElementById('hud-bar');
+    const screen = document.getElementById('screen');
+    const powerButton = document.getElementById('power-button');
 
-    }, 5400);
+    // HUD Elements
+    const hudO2 = document.getElementById('hud-o2');
+    const hudPwr = document.getElementById('hud-pwr');
+    const hudHull = document.getElementById('hud-hull');
+    const hudCrew = document.getElementById('hud-crew');
+
+    let state = 'OFF';
+    let isTyping = false;
+    let audioCtx;
+    let staticGainNode;
+    let keyNoiseBuffer;
+
+    // Narrative State Machine Variables
+    let metrics = {
+        o2: 100,
+        pwr: 30,
+        hull: 'COMPROMISED',
+        crewAlive: true,
+        aiCoreActive: true,
+        commsTrunkSevered: false,
+        hangarIrradiated: false
+    };
     
-}
+    let currentNodeId = 'INIT';
 
-function addMessage(text, type="normal") {
-    const container = document.getElementById("history");
-    let className = "message"; 
-    if (type==="warn") className+=" warn-text";
-    else if (type==="system") className+=" sys-msg";
-    else if (type==="hint") className += " hint-msg";
-    
-    // Create line break between entries  
-    const p = document.createElement("span"); 
-    p.innerHTML = `> ${text}`; // automatically prepends "> " for realism
-    p.className=className;
-    
-    container.appendChild(p);
-    container.scrollTop = container.scrollHeight; // auto scroll down
-    
-}
-
-// Game logic parser (clean, simple, robust)
-function handleInput(input) {
-    const text = input.toLowerCase().trim();
-    if (!text) { return; } 
-
-    // Echo what was typed
-    addMessage(`> ${input}`, 'system'); 
-    setTimeout(() => {
-        document.getElementById('player-input').value=''; // clear field for next input
-    }, 80);
-
-    // COMMAND ROUTER — easy to expand later
-    const parts = text.split(/\s+/); 
-
-    if (["help","h"].includes(parts[0])) {
-        addMessage("[COMMAND REFERENCE]\n • look [thing] – see details\n" + 
-                   " • use [item] – operate something (if you have it)\n" +
-                   " • inventory/i – show what you carry", "sys");
-        
-    } else if (parts[0] === "look") {
-        const target = parts.slice(1).join(' ');
-
-        // 1. General look  
-        if (!target) {
-            addMessage("Look where? Try 'look console', 'look locker'...", "hint"); 
+    // --- SECOND ORDER GRAPH LOGIC ---
+    const storyNodes = {
+        'INIT': {
+            text: "LUNAR FACILITY ARCHIMEDES.\nKINETIC IMPACT DETECTED. SECTOR 4 DESTROYED.\nSYSTEM VELOCITY: CASCADING FAILURE.\n\nYOU ARE SEALED IN THE OVERSEER QUARTERS.\nATMOSPHERE IS VENTING THROUGH MICRO-FRACTURES IN THE BULKHEAD.\n\nSELECT IMMEDIATE TACTICAL RESPONSE:\n[1] SEAL VENTS WITH STRUCTURAL FOAM\n[2] HACK MAGNETIC DOOR SEAL TO ESCAPE TO CORRIDOR",
+            choices: {
+                '1': 'SEAL_VENTS',
+                '2': 'HACK_DOOR'
+            }
+        },
+        'SEAL_VENTS': {
+            effect: () => { metrics.o2 = 80; metrics.pwr -= 5; },
+            text: "FIRST ORDER EFFECT: VENTS SEALED. OXYGEN LOSS HALTED.\nSECOND ORDER EFFECT: CO2 SCRUBBERS ARE NOW ISOLATED FROM MAIN RECYCLER. THEY WILL OVERSATURATE IN 30 CYCLES.\n\nYOU ARE TRAPPED IN THE ROOM. MAIN TERMINAL HAS LIMITED NETWORK ACCESS.\n\n[1] DRAIN POWER FROM CRYOGENICS TO FORCE DOOR OPEN\n[2] OVERRIDE ATLAS AI CORE GOVERNORS TO REROUTE GRID",
+            choices: {
+                '1': 'DRAIN_CRYO',
+                '2': 'OVERRIDE_AI'
+            }
+        },
+        'HACK_DOOR': {
+            effect: () => { metrics.o2 -= 40; metrics.commsTrunkSevered = true; metrics.hull = 'CRITICAL'; },
+            text: "FIRST ORDER EFFECT: DOOR OPENS. YOU ESCAPE INTO THE CORRIDOR.\nSECOND ORDER EFFECT: RAPID DECOMPRESSION PULLS DEBRIS INTO THE HALLWAY, SEVERING THE PRIMARY COMMS TRUNK.\n\nTHE CORRIDOR IS ZERO-G. A CREWMATE IS PINNED UNDER A FALLEN STRUT. NEARBY, A REACTOR RELAY IS SPARKING, EMITTING LETHAL RADIATION DOWN THE HALL TOWARDS THE HANGAR.\n\n[1] FIX REACTOR RELAY (PRESERVE HANGAR ACCESS)\n[2] RESCUE CREWMATE (EXPEND SUIT O2)",
+            choices: {
+                '1': 'FIX_RELAY',
+                '2': 'RESCUE_CREW'
+            }
+        },
+        'DRAIN_CRYO': {
+            effect: () => { metrics.pwr += 40; metrics.crewAlive = false; },
+            text: "FIRST ORDER EFFECT: LOCAL GRID RESTORED. DOOR UNLOCKED.\nSECOND ORDER EFFECT: CRYOGENIC STASIS PODS DEACTIVATED. CREW EXPENDED. THEIR BIOMETRIC LOCKS HAVE AUTOMATICALLY ENGAGED BASE-WIDE LOCKDOWN.\n\nYOU STEP INTO THE CORRIDOR. IT IS EMPTY. THE ESCAPE PODS REQUIRE BIOMETRIC AUTHORIZATION YOU NO LONGER POSSESS.\n\n[1] PROCEED TO MANUAL AIRLOCK OVERRIDE (HIGH RISK)\n[2] ATTEMPT TO RE-WIRE COMMS ARRAY FOR RESCUE",
+            choices: {
+                '1': 'MANUAL_AIRLOCK',
+                '2': 'REWIRE_COMMS'
+            }
+        },
+        'OVERRIDE_AI': {
+            effect: () => { metrics.pwr += 60; metrics.aiCoreActive = false; },
+            text: "FIRST ORDER EFFECT: MASSIVE POWER SURGE RESTORES DOOR OPERATIONS.\nSECOND ORDER EFFECT: ATLAS AI SAFETY GOVERNORS DISABLED. REACTOR TEMPERATURE VELOCITY INCREASING EXPONENTIALLY. MELTDOWN IMMINENT.\n\nYOU HAVE MINUTES BEFORE THE FACILITY VAPORIZES. ESCAPE PODS ARE ONLINE BUT LACK AI NAV-GUIDANCE.\n\n[1] LAUNCH ESCAPE POD (BLIND TRAJECTORY)\n[2] RUN TO REACTOR CORE FOR MANUAL SCRAM",
+            choices: {
+                '1': 'BLIND_LAUNCH',
+                '2': 'MANUAL_SCRAM'
+            }
+        },
+        'FIX_RELAY': {
+            effect: () => { metrics.crewAlive = false; metrics.o2 -= 20; },
+            text: "FIRST ORDER EFFECT: RADIATION CONTAINED. PATH TO HANGAR SECURED.\nSECOND ORDER EFFECT: CREWMATE SUFFOCATES WHILE YOU WORK. YOU LOSE ACCESS TO THEIR ENGINEERING KEYCODES.\n\nYOU REACH THE HANGAR. A SHUTTLE IS INTACT, BUT ITS IGNITION REQUIRES ENGINEERING CLEARANCE OR AN AI OVERRIDE.\n\n[1] ATTEMPT BRUTE-FORCE HOTWIRE OF SHUTTLE\n[2] UPLINK ATLAS AI TO SHUTTLE MAINFRAME",
+            choices: {
+                '1': 'HOTWIRE',
+                '2': 'AI_UPLINK'
+            }
+        },
+        'RESCUE_CREW': {
+            effect: () => { metrics.o2 -= 30; metrics.hangarIrradiated = true; },
+            text: "FIRST ORDER EFFECT: CREWMATE RESCUED. ENGINEERING CODES ACQUIRED.\nSECOND ORDER EFFECT: RELAY MELTS DOWN. RADIATION FLOODS THE HANGAR BAY. PRIMARY SHUTTLES ARE INACCESSIBLE.\n\nYOUR ONLY OPTION IS THE SECONDARY ESCAPE PODS. COMMS ARE DOWN, SO RESCUE IS IMPOSSIBLE.\n\n[1] PROCEED TO SECONDARY PODS WITH CREWMATE\n[2] SACRIFICE SUIT INTEGRITY TO REACH HANGAR ANYWAY",
+            choices: {
+                '1': 'SECONDARY_PODS',
+                '2': 'RAD_DASH'
+            }
+        },
+        // --- TERMINAL ENDINGS ---
+        'MANUAL_AIRLOCK': {
+            text: "END OF LINE.\nWITHOUT BIOMETRICS OR AI ASSISTANCE, THE AIRLOCK CYCLING SEQUENCE FAILS. YOU ARE FLUSHED INTO THE VACUUM ALONG WITH THE REMAINING DEBRIS.\n\nCRITICAL FAILURE IDENTIFIED: INCENTIVIZED SHORT-TERM SURVIVAL OVER STRUCTURAL ASSET PRESERVATION (CREW).",
+            terminal: true
+        },
+        'REWIRE_COMMS': {
+            text: "END OF LINE.\nTHE COMMS ARRAY WAS SEVERED DURING THE INITIAL IMPACT. YOU SPEND YOUR REMAINING OXYGEN ATTEMPTING TO RE-ROUTE A DEAD CIRCUIT.\n\nCRITICAL FAILURE IDENTIFIED: LACK OF SITUATIONAL AWARENESS REGARDING HARDWARE VELOCITY.",
+            terminal: true
+        },
+        'BLIND_LAUNCH': {
+            text: "END OF LINE.\nYOU LAUNCH THE POD. WITHOUT ATLAS NAV-GUIDANCE, THE THRUSTERS MISCALCULATE LUNAR GRAVITY. THE POD SKIPS OFF THE EXOSPHERE AND DRIFTS INTO DEEP SPACE.\n\nCRITICAL FAILURE IDENTIFIED: SACRIFICING LONG-TERM NAVIGATIONAL LOGIC FOR IMMEDIATE POWER GAINS.",
+            terminal: true
+        },
+        'MANUAL_SCRAM': {
+            text: "END OF LINE.\nYOU REACH THE REACTOR. THE TEMPERATURE VELOCITY IS TOO HIGH. THE CORE DETONATES AS YOU GRAB THE CONTROL ROD LEVERS.\n\nCRITICAL FAILURE IDENTIFIED: UNDERESTIMATING EXPONENTIAL DEGRADATION CURVES.",
+            terminal: true
+        },
+        'HOTWIRE': {
+            text: "END OF LINE.\nBRUTE-FORCING THE SHUTTLE IGNITION TRIGGERS ITS ANTI-THEFT PROTOCOLS. THE SHUTTLE LOCKS DOWN PERMANENTLY. YOU SUFFOCATE IN THE COCKPIT.\n\nCRITICAL FAILURE IDENTIFIED: DISREGARD FOR PROPRIETARY HARDWARE INCENTIVES.",
+            terminal: true
+        },
+        'AI_UPLINK': {
+            text: "SURVIVAL SECURED.\nATLAS AI UPLOADS TO THE SHUTTLE, OVERRIDING THE ENGINEERING LOCKS. YOU LAUNCH SUCCESSFULLY.\n\nNOTE: YOU ARE THE SOLE SURVIVOR. THE FACILITY IS LOST. A PYRRHIC VICTORY, BUT LOGICALLY SOUND GIVEN THE INITIAL METRICS.",
+            terminal: true
+        },
+        'SECONDARY_PODS': {
+            text: "SURVIVAL SECURED.\nYOU AND THE CREWMATE REACH THE PODS. THEIR ENGINEERING KEYCODES BYPASS THE LOCKDOWN. YOU BOTH EJECT BEFORE THE RADIATION SPREADS.\n\nNOTE: OPTIMAL UTILIZATION OF HUMAN ASSETS TO BYPASS HARDWARE RESTRICTIONS.",
+            terminal: true
+        },
+        'RAD_DASH': {
+            text: "END OF LINE.\nTHE RADIATION INSTANTLY DEGRADES YOUR SUIT SEALS. YOU COLLAPSE BEFORE REACHING THE SHUTTLE RAMP.\n\nCRITICAL FAILURE IDENTIFIED: IGNORING LETHAL ENVIRONMENTAL VARIABLES.",
+            terminal: true
         }
+    };
 
-        else if (target.includes("console")) {
-            addMessage("[Comms Console] Screen flickers with a message:\n" +
-                     "> FREQ: UNLOCKED / 357 MHz\n" +
-                     "> T/R MODULE: OVERHEAT PROTECTION", "sys");
-            window.clues = window.clues || {}; window.clues["freq"] = true;
-        }
+    function updateHUD() {
+        hudO2.innerText = `O2: ${metrics.o2}%`;
+        hudPwr.innerText = `PWR: ${metrics.pwr}%`;
+        hudHull.innerText = `HULL: ${metrics.hull}`;
         
-        else if (target.includes("tablet")) {
-            addMessage("[Tablet Dock] Dark, power indicator OFF. The manual says:\n" + 
-                      " ‘Low Battery — Emergency Reboot via USB or Battery Port’", "sys");
-        }
+        let crewStatus = metrics.crewAlive ? "STASIS/ACTIVE" : "EXPENDED";
+        if (!metrics.crewAlive) hudCrew.classList.add('stat-critical');
+        hudCrew.innerText = `CREW: ${crewStatus}`;
 
-        else if (target.includes("door") || target.includes("bulkhead")) {
-            addMessage("[Bulkhead Door] Emergency Release Lever engaged. But no response.\n" +
-                       "> SECURITY LOCK ACTIVE – AUTHORIZATION: ADMIN ONLY.", "warn"); 
-        }
-
-        else if (target.includes("locker")) {
-            addMessage("[Emergency Locker] Magnets disengaged. Inside you find:\n • CO2 Scrubber (1 use)\n" +
-                      "• Flashlight (heavy duty, 6hr runtime)\n• 9V Battery Backup", "sys");
-            
-            window.inventory = window.inventory || [];
-            ["filter", "flashlight", "battery"].forEach(x => { 
-                if (!window.inventory.includes(x)) window.inventory.push(x); 
-            });
-            addMessage("*You pick them up.* Now available: use [item]", "hint");  
-        }
+        if (metrics.o2 <= 40) hudO2.classList.add('stat-critical');
+        else hudO2.classList.remove('stat-critical');
         
-        else addMessage("You look around, but find nothing more notable.", "normal");
+        if (metrics.pwr <= 30) hudPwr.classList.add('stat-critical');
+        else hudPwr.classList.remove('stat-critical');
+
+        if (metrics.hull === 'CRITICAL') {
+            hudHull.classList.add('stat-critical');
+            screen.classList.add('alert-active');
+        } else {
+            hudHull.classList.remove('stat-critical');
+            screen.classList.remove('alert-active');
+        }
     }
 
-    // Use item
-    else if (parts[0] === "use") {
+    function renderNode(nodeId) {
+        currentNodeId = nodeId;
+        const node = storyNodes[nodeId];
         
-        const obj = parts.slice(1).join(' ');
-        
-        // 1. Use battery on console  
-        if ((obj.includes("bat") && window.inventory?.includes("battery")) && 
-           (obj.includes("con") || obj.includes("on")) ) {
+        if (node.effect) node.effect();
+        updateHUD();
+        saveGame();
 
-            addMessage("*You connect the backup battery…*", "sys"); 
+        printText(node.text, 30, () => {
+            if (node.terminal) {
+                setTimeout(() => {
+                    inputField.style.display = 'none';
+                    promptSpan.innerText = "SYSTEM HALTED.";
+                    deleteSave();
+                    if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3);
+                }, 1000);
+            }
+        });
+    }
 
-            setTimeout(() => {
-                if (!window.clues) { window.clues = {}; } // make sure exists
-                addMessage("[POWER UP SEQUENCE]\nLEDs shift from amber to solid GREEN.\nThe tablet dock wakes.", "sys");
-                window.clues.powered_console=true;
-                
-                document.querySelector("#status-bar").innerHTML =
-                    "STATUS: <span style='color:#aef'>POWER RESTORED</span> | " +
-                    "<b>OXYGEN LEFT:</b> <span id=\"oxygen-display\" class=\"oxygen-val\">~3h 05m</span>" + 
-                    "| COMMS: <span style='background:rgba(10,30,20,0.7);padding:0px 4px'>READY</span>";
-                    
-            }, 750);
-        }
+    // --- SYSTEM & AUDIO ---
+    function saveGame() {
+        const data = { currentNodeId, metrics };
+        localStorage.setItem('archimedes_save', JSON.stringify(data));
+    }
+
+    function loadGame() {
+        const data = JSON.parse(localStorage.getItem('archimedes_save'));
+        currentNodeId = data.currentNodeId;
+        metrics = data.metrics;
+    }
+
+    function deleteSave() {
+        localStorage.removeItem('archimedes_save');
+    }
+
+    function playHardwareSwitch() {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(80, t);
+        osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
+        gain.gain.setValueAtTime(0.8, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.15);
+    }
+
+    function createKeyNoiseBuffer() {
+        const bufferSize = audioCtx.sampleRate * 0.05; 
+        keyNoiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = keyNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1; 
+    }
+
+    function startStaticNoise() {
+        const bufferSize = audioCtx.sampleRate * 2; 
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
         
-        // use battery on tablet  
-        else if (obj.includes("bat") && window.inventory?.includes("battery")) {
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
+        
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'highpass'; 
+        filter.frequency.value = 1200; 
+
+        staticGainNode = audioCtx.createGain();
+        staticGainNode.gain.value = 0.003; 
+
+        noise.connect(filter);
+        filter.connect(staticGainNode);
+        staticGainNode.connect(audioCtx.destination);
+        noise.start();
+    }
+
+    function playKeyDown() {
+        if (!audioCtx || !keyNoiseBuffer) return;
+        const t = audioCtx.currentTime;
+        const source = audioCtx.createBufferSource();
+        source.buffer = keyNoiseBuffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 3000;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.1, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.015);
+        
+        source.connect(filter).connect(gain).connect(audioCtx.destination);
+        source.start(t);
+        source.stop(t + 0.02);
+    }
+
+    function printText(text, speed = 30, callback = null) {
+        isTyping = true;
+        inputField.disabled = true;
+        let i = 0;
+        
+        const interval = setInterval(() => {
+            outputDiv.innerHTML += text.charAt(i);
+            if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playKeyDown();
             
-            if (window.clues.powered_console) { 
-                addMessage("*Tablet powers up, then locks down —*\n‘CRITICAL: POWER SOURCE UNSTABLE. RUN DIAGNOSTICS.’");
-                document.querySelector("#status-bar").innerHTML = "STATUS: <span style='color:#fca'>POWER CRITICAL</span>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+            i++;
+            if (i >= text.length) {
+                clearInterval(interval);
+                outputDiv.innerHTML += '<br><br>';
+                isTyping = false;
+                inputField.disabled = false;
+                inputField.focus();
+                if (callback) callback();
+            }
+        }, speed);
+    }
+
+    function handleInput(rawCmd) {
+        if (isTyping) return;
+        
+        const sanitizedRaw = rawCmd.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const cmd = sanitizedRaw.trim();
+        
+        outputDiv.innerHTML += `<span style="color:#e0e0e0">> ${cmd}</span><br>`;
+        inputField.value = '';
+
+        if (state === 'RESTORE_PROMPT') {
+            if (cmd === '1') {
+                loadGame();
+                state = 'ACTIVE';
+                hudBar.style.display = 'flex';
+                renderNode(currentNodeId);
+            } else if (cmd === '2') {
+                deleteSave();
+                state = 'ACTIVE';
+                hudBar.style.display = 'flex';
+                renderNode('INIT');
             } else {
-                addMessage("Nothing happens — the console needs power too.", "normal"); 
+                printText("INVALID SELECTION. ENTER 1 OR 2.");
+            }
+            return;
+        }
+
+        if (state === 'ACTIVE') {
+            const node = storyNodes[currentNodeId];
+            if (!node.choices) return; // Terminal state
+
+            if (node.choices[cmd]) {
+                const nextNode = node.choices[cmd];
+                renderNode(nextNode);
+            } else {
+                printText("INVALID INPUT. SELECT A NUMERIC IDENTIFIER FROM THE AVAILABLE TACTICAL OPTIONS.");
             }
         }
-        
-        // Use flashlight (you only need to have it)
-        else if ((obj.includes("flashlight") || obj==="fl") && window.inventory?.includes("flashlight")) {
-
-            setTimeout(() => {  
-                addMessage("*Light cuts through the gloom.* You see loose wiring under Junction 5’s broken panel.", "sys");
-                window.clues = window.clues || {};
-                window.clues.wiringVisible=true;
-            }, 600);
-        }
-
-        else if (obj.includes("filter") && window.inventory?.includes("filter")) {
-            addMessage("*You replace the CO2 scrubber. Cycle completes.*", "sys");
-            
-            setTimeout(() => { 
-                addMessage("Oxygen estimated extended: +90 minutes.\n" +
-                           "You breathe a little easier.", "sys");
-                
-                if (!window.inventory.includes("empty_scubber")) {
-                    window.inventory = window.inventory.filter(i => i!=="filter"); 
-                }
-            }, 800);
-        }
-
-        else {
-            addMessage("*Nothing happens. Are you using the right item?", "normal");  
-        }
-    } 
-    
-    // Inventory
-    else if (["i","inv"].includes(parts[0])) {
-        if (!window.inventory || !Array.isArray(window.inventory) || window.inventory.length===0) 
-             { addMessage("Inventory: Empty"); }
-        else { 
-            const items = window.inventory.map(x => `- ${x.replace("_", " ")}`);
-            addMessage(`[Your Inventory] ${items.join('\n      ')}`,"sys");
-        } 
     }
 
-    // Transmitter — final progression
-    else if (text.includes("transmit") || text==="send") {
+    powerButton.addEventListener('click', () => {
+        if (state !== 'OFF') return; 
         
-        if (!window.clues || !window.clues.powered_console) {  
-            addMessage("Nothing happens. The console is unpowered. Try connecting the backup battery.", "warn"); 
-        }
-        else if (!window.clues.wiringVisible) {  
-             addMessage("*LEDs blink… but nothing transmits.*\n" + 
-                        "Earth needs signal integrity: the cable at Junction 5 is frayed and sparking.\nYou need to see the wire. Try a flashlight.", "warn"); 
-        }
+        powerButton.classList.add('active');
         
-        else if (window.clues.wiringVisible) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        startStaticNoise();
+        createKeyNoiseBuffer();
+        playHardwareSwitch();
+
+        screen.classList.add('powered-on');
+
+        setTimeout(() => {
+            inputLine.style.display = 'flex';
             
-            setTimeout(() => { 
-                addMessage("TRANSMIT SEQUENCE:\n1. SET FREQUENCY: 357.0 MHz — [OK]", "system");
-                addMessage("2. ESTABLISH LINK: Checking wire integrity…", "system");
-                
-                setTimeout(() => {
-                    
-                    // Now give player one more decision to *fix* the wiring (even if only descriptive)
-                    addMessage(
-                        "> SIGNAL PATH UNSTABLE.\n" +
-                        "*The loose spool of red wire hums.* \nYou have 12 seconds to reconnect it—or lose your transmission forever.\n\nDo you attempt the bypass?", 
-                        "warn");
+            if (localStorage.getItem('archimedes_save')) {
+                state = 'RESTORE_PROMPT';
+                printText("ATLAS PROTOCOL ONLINE. LOCAL CACHE DETECTED.\n[1] RESUME PREVIOUS OPERATION\n[2] WIPE CACHE AND RESTART\nINPUT TACTICAL CHOICE:");
+            } else {
+                state = 'ACTIVE';
+                hudBar.style.display = 'flex';
+                updateHUD();
+                renderNode('INIT');
+            }
+        }, 1500);
+    });
 
-                    setTimeout(() => {  
-                        
-                        addMessage("[SILENCE]\nThe airlock hisses — emergency venting begins.", "warn");
-                        
-                        // One final chance: say 'splice' or 'repair'  
-                    }, 2100);
-                    
-                }, 950);
-            }, 1600); 
-        }
-    } 
-    
-    else {
-        addMessage("Command not recognized. Try typing ‘help’.", "normal"); 
-    }
-}
-
-// Setup game start & event binding  
-document.addEventListener('DOMContentLoaded', function() {
-
-    const inputEl = document.getElementById('player-input'); 
-    
-    inputEl.addEventListener("keydown", function(e) {
-        
-        // Prevent Enter from scrolling the window or creating newlines
-        if (e.key === 'Enter') { 
-            e.preventDefault(); // stop new line
-            handleInput(this.value);
-            inputEl.value = "";
-            this.focus(); // always keep focus  
-        } else {
-            // Auto-focus any time user starts typing again, for convenience
-            this.focus();
+    inputField.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            let val = inputField.value.trim();
+            if (val !== '') handleInput(val);
+        } else if (e.key !== 'Shift') {
+            playKeyDown();
         }
     });
-    
-    // Ensure the game window can be tabbed (if focus is lost somehow)
-    document.getElementById("history").addEventListener('click', () => inputEl.focus());
-    
-    startBoot(); 
-    
-    // Give 6 seconds then focus automatically 
-    setTimeout(() => inputEl.focus(), 4200);
-
-});
 
 </script>
-
-<div style="display:none">
-    <!-- Hidden placeholder so this script runs before the game logic starts -->
-</div>
-</div></body>
+</body>
 </html>
