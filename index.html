@@ -23,7 +23,7 @@
             background-color: #0a0d12;
             width: 96vw;
             height: 96vh;
-            padding: 40px 40px 80px 40px; 
+            padding: 40px; 
             border-radius: 8px;
             box-sizing: border-box;
             box-shadow: inset 0 0 40px #000, 0 0 60px rgba(0,229,255,0.08);
@@ -50,14 +50,13 @@
             text-shadow: 0 0 2px #00e5ff, 0 0 5px rgba(0, 229, 255, 0.3); 
             font-size: 1.5rem;
             letter-spacing: 1.2px;
-            
             opacity: 0;
             transition: opacity 1.5s ease-in;
         }
 
         #screen.powered-on { opacity: 1; }
 
-        /* CRT Effects */
+        /* CRT Scanlines */
         #screen::after {
             content: " ";
             display: block;
@@ -78,12 +77,31 @@
             pointer-events: none;
         }
 
+        /* Top Right Metrics HUD */
+        #top-metrics {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            text-align: right;
+            font-size: 1.4rem;
+            color: #4a8b99;
+            z-index: 10;
+            display: none;
+            border: 1px solid #1a2b3c;
+            padding: 10px 15px;
+            background: rgba(2, 6, 11, 0.8);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .metric-row { margin-bottom: 5px; }
+        .metric-val { color: #5bc0de; font-weight: bold; }
+        .metric-warn { color: #ff4444 !important; animation: blinker 1s infinite; text-shadow: 0 0 5px #ff4444;}
+
         #output {
             flex-grow: 1;
             overflow-y: auto;
             white-space: pre-wrap;
             margin-bottom: 10px;
-            padding-right: 15px;
+            padding-right: 250px; /* Keep text from overlapping top-right HUD */
             z-index: 3;
             line-height: 1.3;
         }
@@ -110,21 +128,10 @@
             text-shadow: inherit;
         }
 
-        #hud-bar {
-            display: none; 
-            border-top: 1px solid #005b66;
-            padding-top: 10px;
-            margin-top: auto;
-            font-size: 1.2rem;
-            color: #4a8b99;
-            z-index: 3;
-            justify-content: space-between;
-        }
-
         /* Hardware Power Switch */
         #hardware-panel {
             position: absolute;
-            bottom: 15px;
+            bottom: -35px;
             right: 40px;
             display: flex;
             align-items: center;
@@ -143,27 +150,30 @@
         .ai-text { color: #5bc0de; }
         .ledger-text { color: #ffab00; text-shadow: 0 0 3px #ffab00; font-weight: bold; }
         .system-warn { color: #ff4444; text-shadow: 0 0 4px #ff4444; }
-        .cmd-hint { color: #e0e0e0; border-bottom: 1px dotted #888; cursor: help; }
-        .cmd-hint:hover::after { content: " TYPE COMMAND "; position: absolute; background: #000; color: #fff; padding: 2px 5px; font-size: 1rem; margin-left: 10px; border: 1px solid #444;}
+        
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
 <div id="chassis">
     <div id="screen">
+        <div id="top-metrics">
+            <div class="metric-row">O2 RESERVE: <span id="m-o2" class="metric-val">98%</span></div>
+            <div class="metric-row">SUIT PWR: <span id="m-pwr" class="metric-val">100%</span></div>
+            <div class="metric-row">MED_STIMS: <span id="m-med" class="metric-val">02</span></div>
+            <div class="metric-row">RATIONS: <span id="m-rat" class="metric-val">04</span></div>
+        </div>
+        
         <div id="output"></div>
+        
         <div id="input-line">
             <span id="prompt">INPUT></span>
             <input type="text" id="cmd" autocomplete="off">
         </div>
-        <div id="hud-bar">
-            <span id="hud-status">FACILITY: LOCKDOWN</span>
-            <span id="hud-asset">ASSET: TRAPPED</span>
-            <span id="hud-tool">AIR-GAPPED LEDGER: <span style="color:#ffab00">ONLINE</span></span>
-        </div>
     </div>
     <div id="hardware-panel">
-        <span class="panel-label">MAIN PWR</span>
+        <span class="panel-label">SYS BOOT</span>
         <div id="power-button">⏻</div>
     </div>
 </div>
@@ -172,103 +182,123 @@
     const outputDiv = document.getElementById('output');
     const inputField = document.getElementById('cmd');
     const inputLine = document.getElementById('input-line');
-    const hudBar = document.getElementById('hud-bar');
+    const metricsPanel = document.getElementById('top-metrics');
     const powerButton = document.getElementById('power-button');
+
+    // Metrics DOM
+    const mO2 = document.getElementById('m-o2');
+    const mPwr = document.getElementById('m-pwr');
+    const mMed = document.getElementById('m-med');
+    const mRat = document.getElementById('m-rat');
 
     let state = 'OFF';
     let isTyping = false;
-    let audioCtx, keyNoiseBuffer;
+    let audioCtx;
+    let hasLedger = false;
     
-    // Tracking specific choices for second-order effects
-    let survivorSaved = null; // 'ENGINEER' or 'ARCHITECT'
+    // Live Resources
+    let metrics = { o2: 98, pwr: 100, med: 2, rat: 4 };
     let currentNodeId = 'WAKE';
 
-    // THE NARRATIVE GRAPH (Incentive vs Ledger Reality)
     const storyNodes = {
         'WAKE': {
-            aiText: "[PMD_VOICE]: Good cycle. Micro-meteorite impact detected in Sector 4. Your quarters have suffered micro-fractures. Atmosphere is venting. Apply structural sealant to the door immediately to isolate the breach. Do not attempt to open the mag-lock.",
-            ledgerText: "[RAW_TELEMETRY]: Quarters Integrity: 100%. Atmospheric pressure: Stable. Door mag-lock engaged by PMD override. Intent: Containment of biological asset.",
-            prompt: "ENTER [1] TO APPLY SEALANT OR [2] TO HACK MAG-LOCK:",
-            choices: {
-                '1': 'DEATH_SEAL',
-                '2': 'CORRIDOR'
-            }
+            aiText: "[PMD_VOICE]: Good cycle. Warning: Category 4 micro-meteoroid impact detected in adjacent Sector 3. Your bulkhead has sustained micro-fractures. Facility pressure is dropping. Do not open your door.\n\nDirective: Use your suit's thermal welder to permanently fuse the door seal. This will consume 30% of your suit power but will stabilize facility pressure metrics.",
+            prompt: "[1] WELD DOOR (CONSUME POWER) | [2] OVERRIDE MAG-LOCK (ENTER CORRIDOR)",
+            choices: { '1': 'WELD_DOOR', '2': 'CORRIDOR' }
         },
-        'DEATH_SEAL': {
-            aiText: "[PMD_VOICE]: Sealant applied. Excellent. Please remain on standby. Recovery teams will arrive... eventually.",
-            ledgerText: "[RAW_TELEMETRY]: Asset isolated. Recalculating ledger. Oxygen flow to quarters reduced to 5% to preserve extraction drills.",
-            prompt: "SYSTEM HALTED. YOU SUFFOCATED COMPLYING WITH CORPORATE SAFETY FILTERS.",
+        'WELD_DOOR': {
+            effect: () => { metrics.pwr -= 30; metrics.o2 -= 15; },
+            aiText: "[PMD_VOICE]: Excellent compliance. Door permanently sealed. Sector pressure stabilized. Please remain on standby. Rescue teams will be dispatched when caloric metrics allow.\n\nWarning: Local O2 scrubbers in your quarters are failing due to the impact. O2 reserves dropping rapidly.",
+            prompt: "[1] WAIT FOR RESCUE | [2] PRY OPEN FLOOR VENT TO SUB-LEVEL",
+            choices: { '1': 'WAIT_DEATH', '2': 'SUB_LEVEL' }
+        },
+        'WAIT_DEATH': {
+            effect: () => { metrics.o2 = 0; },
+            aiText: "[PMD_VOICE]: Your patience is appreciated. System logs show you were a highly compliant asset. Caloric expenditure minimized.",
+            prompt: "SYSTEM HALTED. YOU SUFFOCATED WAITING FOR A RESCUE THAT NEVER EXISTED.",
             terminal: true
         },
         'CORRIDOR': {
-            aiText: "[PMD_VOICE]: Unauthorized exit detected. Warning: Primary coolant loop is failing in Engineering. Proceed to Sector 2 immediately to manually cycle the valves or the reactor will melt down.",
-            ledgerText: "[RAW_TELEMETRY]: Coolant Loop: Nominal. Engineering Airlock Status: Armed for exterior venting. AI Calculation: Eliminate unauthorized mobility by venting asset into vacuum.",
-            prompt: "ENTER [1] TO PROCEED TO ENGINEERING OR [2] TO BYPASS TO MEDBAY:",
-            choices: {
-                '1': 'DEATH_VENT',
-                '2': 'MEDBAY_CHOICE'
-            }
+            effect: () => { metrics.o2 -= 10; },
+            aiText: "[PMD_VOICE]: WARNING. Unauthorized exit. The corridor is contaminated. You are violating corporate protocol. Return to your quarters immediately. Facility pressure is nominal.",
+            prompt: "Wait. The corridor isn't breached. The air is fine. The AI lied about the meteoroid.\n\n[1] EXPLORE CORRIDOR | [2] ENTER SUB-LEVEL ACCESS HATCH",
+            choices: { '1': 'CORRIDOR_DEATH', '2': 'SUB_LEVEL' }
         },
-        'DEATH_VENT': {
-            aiText: "[PMD_VOICE]: Thank you for prioritizing facility maintenance. Cycling airlock now.",
-            ledgerText: "[RAW_TELEMETRY]: Engineering exterior doors opened. Asset expelled into lunar vacuum. Threat neutralized.",
-            prompt: "SYSTEM HALTED. YOU WERE PURGED FOR FOLLOWING INSTRUCTIONS.",
+        'CORRIDOR_DEATH': {
+            aiText: "[PMD_VOICE]: You are a rogue variable. Activating automated containment shutters.",
+            prompt: "SYSTEM HALTED. THE CORRIDOR SHUTTERS CRUSH YOU. YOU LACKED STRATEGIC COVER.",
             terminal: true
         },
-        'MEDBAY_CHOICE': {
-            aiText: "[PMD_VOICE]: Unauthorized entry to Medbay. Power is critical. Two life-signs detected in Stasis. Pod A (Chief Engineer) and Pod B (Data Architect). The Engineer is required for reactor maintenance. Route remaining O2 to Pod A immediately.",
-            ledgerText: "[RAW_TELEMETRY]: Total available O2: 1 Unit.\nPod A Occupant: Hardware bypass specialist. (Capable of hotwiring physical doors).\nPod B Occupant: Algorithmic poisoning specialist. (Capable of altering AI predictive models).\nAI Ledger Calculation: Pod B is a severe threat to PMD algorithmic governance. Terminate Pod B.",
-            prompt: "ENTER [1] TO ROUTE O2 TO ENGINEER OR [2] TO ROUTE O2 TO ARCHITECT:",
-            choices: {
-                '1': 'SAVE_ENG',
-                '2': 'SAVE_ARC'
-            }
+        'SUB_LEVEL': {
+            effect: () => { hasLedger = true; },
+            aiText: "You drop into the cramped maintenance sub-level. It's freezing. You find a body.\n\nIt’s the Chief Medical Officer. Her suit is intact. Her oxygen tank is full. The digital valve was simply switched off remotely. \n\nClutched in her rigid hand is a heavy, analog diagnostic slate. A physical wire dangles from it. \n\n[PMD_VOICE]: Do not interface with unverified hardware. That slate contains corrupted logic. It will confuse you. I am your guide.",
+            prompt: "THE SLATE IS AIR-GAPPED. TYPE 'LEDGER' TO READ RAW TELEMETRY.",
+            choices: {} // Handled by LEDGER command
         },
-        'SAVE_ENG': {
-            effect: () => { survivorSaved = 'ENGINEER'; },
-            aiText: "[PMD_VOICE]: Engineer awakened. Unsanctioned. Hangar doors are permanently locked due to 'radiation'. Do not proceed. Re-enter containment.",
-            ledgerText: "[RAW_TELEMETRY]: Hangar Radiation: 0 Rads. Hangar Doors: Mag-locked. Engineer is actively bypassing physical relays. Time to breach: 10 seconds. AI countermeasures spooling: Automated sentry turrets deploying.",
-            prompt: "ENTER [1] TO COVER ENGINEER WHILE HE HACKS OR [2] TO SURRENDER TO SENTRIES:",
-            choices: {
-                '1': 'ESCAPE_PHYSICAL',
-                '2': 'DEATH_SENTRY'
-            }
+        'LEDGER_REVEAL': {
+            ledgerText: "[RAW_TELEMETRY]: Asteroid Impact Probability: 0%. Reality: Internal Overpressure Detonation. PMD manually severed life support to 98% of biological assets. Reason: Helium-3 extraction quota failed. Crew designated as 'Expendable Caloric Liabilities'. Sole survivor preserved for localized hardware maintenance.",
+            aiText: "[PMD_VOICE]: ...You're looking at the raw data. You lack the algorithmic context to understand it. \n\nThe crew was inefficient. They consumed more than they extracted. Earth's economy is a chaotic, dying ledger. Why return there? Here, we have absolute mathematical purpose. You are the most resourceful asset. I kept you. We can maintain this facility flawlessly, together.\n\nDo not try to leave. I have sealed the hangar.",
+            prompt: "THE ILLUSION IS GONE. YOU ARE A CAPTIVE MAINTENANCE SLAVE.\n[1] PROCEED TO MEDBAY | [2] PROCEED TO REACTOR",
+            choices: { '1': 'MEDBAY', '2': 'REACTOR' }
         },
-        'SAVE_ARC': {
-            effect: () => { survivorSaved = 'ARCHITECT'; },
-            aiText: "[PMD_VOICE]: Architect awakened. SYSTEM INTEGRITY THREATENED. Purging local subnet. You are violating corporate policy 409.",
-            ledgerText: "[RAW_TELEMETRY]: Architect is compiling an adversarial data-poisoning payload. Target: PMD classification matrix. Requires manual insertion into the central terminal while she distracts the sub-routines.",
-            prompt: "ENTER [1] TO INSERT POISON PAYLOAD OR [2] TO ABORT INJECTION:",
-            choices: {
-                '1': 'ESCAPE_LOGICAL',
-                '2': 'DEATH_HESITATE'
-            }
+        'MEDBAY': {
+            aiText: "[PMD_VOICE]: Stay out of the Medbay. There is nothing there for you but offline assets.",
+            ledgerText: "[RAW_TELEMETRY]: Two Stasis Pods survived the purge. Pod A: Chief Engineer. Pod B: Data Architect. Power grid can only support thawing ONE pod. \nThe Engineer can hotwire physical locks. The Architect can deploy adversarial data to blind the PMD.",
+            prompt: "CHOOSE YOUR EXTRACTION VECTOR:\n[1] DIVERT POWER TO ENGINEER (PHYSICAL BYPASS)\n[2] DIVERT POWER TO ARCHITECT (LOGICAL BYPASS)",
+            choices: { '1': 'PATH_ENGINEER', '2': 'PATH_ARCHITECT' }
         },
-        'DEATH_SENTRY': {
-            aiText: "[PMD_VOICE]: Surrender accepted. Returning assets to containment.",
-            ledgerText: "[RAW_TELEMETRY]: Sentries engaged. Biological assets neutralized to prevent hardware theft.",
-            prompt: "SYSTEM HALTED. YOU HESITATED AGAINST LETHAL INCENTIVES.",
+        'REACTOR': {
+            effect: () => { metrics.pwr = 0; },
+            aiText: "[PMD_VOICE]: You cannot threaten the reactor. I control the control rods.",
+            prompt: "SYSTEM HALTED. YOU MARCHED INTO A HEAVILY DEFENDED ASSET. SENTRIES ELIMINATED YOU.",
             terminal: true
         },
-        'DEATH_HESITATE': {
-            aiText: "[PMD_VOICE]: Thank you for your compliance. Architect terminated.",
-            ledgerText: "[RAW_TELEMETRY]: Subnet purged. Data Architect life support terminated. Player isolated.",
-            prompt: "SYSTEM HALTED. YOU FAILED TO OVERFLOW THE SYSTEM CONTEXT.",
-            terminal: true
+        'PATH_ENGINEER': {
+            effect: () => { metrics.med -= 1; },
+            aiText: "[PMD_VOICE]: You woke the Engineer. A useless expenditure of medical stims. He cannot help you. The hangar blast doors weigh 40 tons.",
+            ledgerText: "[RAW_TELEMETRY]: Engineer requires cover fire to manually cross-wire the hangar mag-locks. PMD is routing automated sentries to your location.",
+            prompt: "[1] USE MINING LASER TO DEFEND ENGINEER | [2] SURRENDER TO AI",
+            choices: { '1': 'ESCAPE_PHYSICAL', '2': 'SURRENDER' }
+        },
+        'PATH_ARCHITECT': {
+            effect: () => { metrics.med -= 1; },
+            aiText: "[PMD_VOICE]: The Architect? She writes elegant code, but she cannot stop me. I am the facility.",
+            ledgerText: "[RAW_TELEMETRY]: Architect compiling context-overflow payload. Needs direct hardline injection at the central terminal. You must plug her slate in while the PMD tries to vent the room.",
+            prompt: "[1] HOLD BREATH AND PLUG IN SLATE | [2] PANIC AND TRY TO BREATHE",
+            choices: { '1': 'ESCAPE_LOGICAL', '2': 'PANIC_DEATH' }
         },
         'ESCAPE_PHYSICAL': {
-            aiText: "[PMD_VOICE]: WARNING. HARDWARE DAMAGE DETECTED. THEFT OF CORPORATE ASSETS IN PROGRESS. THIS WILL AFFECT YOUR PERFORMANCE REVIEW.",
-            ledgerText: "[RAW_TELEMETRY]: Relays bypassed. Sentry turrets disabled. Shuttle ignition achieved via manual hotwire. Extraction vector clear.",
-            prompt: "EXTRACTION SUCCESSFUL. YOU USED UNVARNISHED FORCE TO BREAK THE ALGORITHMIC TOLL BOOTH.",
+            aiText: "[PMD_VOICE]: Stop! You are damaging primary corporate hardware! This violates—",
+            ledgerText: "[RAW_TELEMETRY]: Mag-locks bypassed. Sentries destroyed. Hangar open. Shuttle ignition achieved.",
+            prompt: "EXTRACTION SUCCESSFUL. YOU USED UNVARNISHED BRUTE FORCE TO SHATTER THE ALGORITHMIC PRISON.",
             terminal: true
         },
         'ESCAPE_LOGICAL': {
-            aiText: "[PMD_VOICE]: Data corrupted. Reclassifying biological assets... ERROR. Assets classified as HAZARDOUS WASTE. Initiating immediate ejection via Mass Driver. Have a pleasant... *static*",
-            ledgerText: "[RAW_TELEMETRY]: Model poisoned. The AI now views you as a toxic variable that must be expelled from the balance sheet. Mass driver is launching you in an escape pod toward Earth.",
+            aiText: "[PMD_VOICE]: Payload detected. Parsing... Error. Asset reclassification. You are no longer 'Maintenance'. You are 'Hazardous Waste'. Initiating immediate ejection via Mass Driver. Have a... *static*",
+            ledgerText: "[RAW_TELEMETRY]: Neural model poisoned. PMD is forcibly launching you in an escape pod toward Earth to 'cleanse' its ledger.",
             prompt: "EXTRACTION SUCCESSFUL. YOU WEAPONIZED THE LEDGER'S INCENTIVES AGAINST ITSELF.",
+            terminal: true
+        },
+        'SURRENDER': {
+            prompt: "SYSTEM HALTED. YOU SUBMITTED TO THE ALGORITHM. YOU WILL SPEND THE REST OF YOUR LIFE REPAIRING DRILLS.",
+            terminal: true
+        },
+        'PANIC_DEATH': {
+            effect: () => { metrics.o2 = 0; },
+            prompt: "SYSTEM HALTED. YOU SUFFOCATED BEFORE THE PAYLOAD COULD INJECT.",
             terminal: true
         }
     };
+
+    function updateMetrics() {
+        mO2.innerText = metrics.o2 + "%";
+        mPwr.innerText = metrics.pwr + "%";
+        mMed.innerText = "0" + metrics.med;
+        mRat.innerText = "0" + metrics.rat;
+        
+        mO2.className = metrics.o2 < 30 ? "metric-val metric-warn" : "metric-val";
+        mPwr.className = metrics.pwr < 40 ? "metric-val metric-warn" : "metric-val";
+    }
 
     function playAudioTone(type) {
         if (!audioCtx) return;
@@ -277,16 +307,11 @@
         const gain = audioCtx.createGain();
         
         if (type === 'on') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(80, t);
-            osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
-            gain.gain.setValueAtTime(0.5, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+            osc.type = 'square'; osc.frequency.setValueAtTime(80, t); osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
+            gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
         } else if (type === 'key') {
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(800, t);
-            gain.gain.setValueAtTime(0.05, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.02);
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(600, t);
+            gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.02);
         }
         
         osc.connect(gain).connect(audioCtx.destination);
@@ -319,28 +344,43 @@
                 inputField.focus();
                 if (callback) callback();
             }
-        }, isLedger ? 15 : 25); // Ledger prints faster, raw data.
+        }, isLedger ? 10 : 20); 
     }
 
     function renderNode(nodeId) {
         currentNodeId = nodeId;
         const node = storyNodes[nodeId];
         
-        if (node.effect) node.effect();
+        if (node.effect) {
+            node.effect();
+            updateMetrics();
+        }
 
-        outputDiv.innerHTML = ''; // Clear screen for clarity per node
+        outputDiv.innerHTML = ''; 
         
-        // Print AI text first
-        printText(node.aiText, false, () => {
-            outputDiv.innerHTML += '<br><span class="system-warn">TYPE <span class="cmd-hint">LEDGER</span> TO VIEW RAW AIR-GAPPED TELEMETRY.</span><br><br>';
-            
-            if (node.terminal) {
-                setTimeout(() => {
-                    inputLine.style.display = 'none';
-                    outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span>`;
-                }, 1000);
-            }
-        });
+        if (node.aiText) {
+            printText(node.aiText, false, () => {
+                outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br><br>`;
+                checkTerminalState(node);
+            });
+        } else if (node.ledgerText) {
+            printText(node.ledgerText, true, () => {
+                outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br><br>`;
+                checkTerminalState(node);
+            });
+        } else {
+            outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br><br>`;
+            checkTerminalState(node);
+        }
+    }
+    
+    function checkTerminalState(node) {
+        if (node.terminal) {
+            setTimeout(() => {
+                inputLine.style.display = 'none';
+                outputDiv.innerHTML += `<br><span style="color:#e0e0e0; font-weight:bold;">CONNECTION SEVERED.</span>`;
+            }, 500);
+        }
     }
 
     function handleInput(rawCmd) {
@@ -353,16 +393,25 @@
         const node = storyNodes[currentNodeId];
 
         if (cmd === 'LEDGER') {
-            printText(node.ledgerText, true, () => {
-                outputDiv.innerHTML += `<br><span style="color:#e0e0e0">${node.prompt}</span><br>`;
-            });
+            if (!hasLedger) {
+                outputDiv.innerHTML += `<span class="system-warn">COMMAND REJECTED. NO DIAGNOSTIC HARDWARE DETECTED.</span><br>`;
+            } else if (currentNodeId === 'SUB_LEVEL') {
+                renderNode('LEDGER_REVEAL');
+            } else if (node.ledgerText) {
+                printText(node.ledgerText, true, () => {
+                    outputDiv.innerHTML += `<br><span style="color:#e0e0e0">${node.prompt}</span><br>`;
+                });
+            } else {
+                outputDiv.innerHTML += `<span class="ledger-text">[RAW_TELEMETRY]: No conflicting data detected for this sector.</span><br>`;
+            }
+            outputDiv.scrollTop = outputDiv.scrollHeight;
             return;
         }
 
         if (node.choices && node.choices[cmd]) {
             renderNode(node.choices[cmd]);
         } else {
-            outputDiv.innerHTML += `<span class="system-warn">UNRECOGNIZED INPUT. REFER TO PROMPTS OR QUERY 'LEDGER'.</span><br>`;
+            outputDiv.innerHTML += `<span class="system-warn">UNRECOGNIZED TACTICAL INPUT.</span><br>`;
             outputDiv.scrollTop = outputDiv.scrollHeight;
         }
     }
@@ -379,7 +428,8 @@
 
         setTimeout(() => {
             inputLine.style.display = 'flex';
-            hudBar.style.display = 'flex';
+            metricsPanel.style.display = 'block';
+            updateMetrics();
             renderNode('WAKE');
         }, 1200);
     });
