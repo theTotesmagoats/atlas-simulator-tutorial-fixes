@@ -2,20 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Terminal Mk V - Archimedes Base</title>
+    <title>Terminal Mk VI - Archimedes Base</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <style>
         body { background-color:#010409; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; font-family:'VT323',monospace; overflow:hidden; user-select:none; }
-        #chassis { background-color:#0a0d12; width:96vw; height:96vh; padding:40px 40px 80px 40px; border-radius:8px; box-sizing:border-box; box-shadow:inset 0 0 40px #000, 0 0 60px rgba(0,229,255,0.08); border:6px solid #11171d; position:relative; display:flex; flex-direction:column; }
+        #chassis { background-color:#0a0d12; width:96vw; height:96vh; padding:40px; border-radius:8px; box-sizing:border-box; box-shadow:inset 0 0 40px #000, 0 0 60px rgba(0,229,255,0.08); border:6px solid #11171d; position:relative; display:flex; flex-direction:column; }
         #screen { background:#02060b; width:100%; height:100%; border-radius:4px; padding:30px; box-sizing:border-box; box-shadow:inset 0 0 80px rgba(0,0,0,1); border:2px solid #1a2b3c; position:relative; overflow:hidden; display:flex; flex-direction:column; color:#00e5ff; text-shadow:0 0 2px #00e5ff, 0 0 5px rgba(0, 229, 255, 0.3); font-size:1.5rem; letter-spacing:1.2px; opacity:0; transition:opacity 1.5s ease-in; }
         #screen.powered-on { opacity:1; }
         #screen::after { content:" "; display:block; position:absolute; top:0; left:0; bottom:0; right:0; background:linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); z-index:4; background-size:100% 3px; pointer-events:none; }
         #screen::before { content:" "; display:block; position:absolute; top:0; left:0; width:100%; height:100%; background:radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.85) 100%); z-index:5; pointer-events:none; }
         #top-metrics { position:absolute; top:30px; right:30px; text-align:right; font-size:1.4rem; color:#4a8b99; z-index:10; display:none; border:1px solid #1a2b3c; padding:10px 15px; background:rgba(2,6,11,0.8); box-shadow:0 0 10px rgba(0,0,0,0.5); }
         .metric-row { margin-bottom:5px; }
-        .metric-val { color:#5bc0de; font-weight:bold; }
+        .metric-val { color:#5bc0de; font-weight:bold; transition: color 0.3s; }
         .metric-warn { color:#ff4444 !important; animation:blinker 1s infinite; text-shadow:0 0 5px #ff4444; }
         #output { flex-grow:1; overflow-y:auto; white-space:pre-wrap; margin-bottom:10px; padding-right:250px; z-index:3; line-height:1.3; }
         #input-line { display:none; align-items:center; font-weight:bold; z-index:3; margin-bottom:5px; }
@@ -29,18 +29,8 @@
         .ai-text { color:#5bc0de; }
         .ledger-text { color:#ffab00; text-shadow:0 0 3px #ffab00; font-weight:bold; }
         .system-warn { color:#ff4444; text-shadow:0 0 4px #ff4444; }
-        .cmd-hint { color:#e0e0e0; border-bottom:1px dotted #888; cursor:help; }
+        .action-text { color:#aaffff; font-style:italic; }
         @keyframes blinker { 50% { opacity:0; } }
-
-        /* ONE-SHOT CALORIC DEFicit HINT — hidden by default, shown only when both metrics low */
-        .caloric-deficit {
-            color:#ffcc33 !important;
-            font-size:1rem !important;
-            position:absolute !important;
-            left:5% !important; bottom:60px !important; right:5% !important; top:auto !important;
-            padding:4px 12px !important; text-align:center !important;
-            background:rgba(48,16,0,0.9); border:1px solid #b58700; display:none !important; margin:0 auto !important;
-        }
     </style>
 </head>
 
@@ -48,22 +38,17 @@
 <div id="chassis">
     <div id="screen">
         <div id="top-metrics">
-            <div class="metric-row">O2 RESERVE: <span id="m-o2" class="metric-val">98%</span></div>
+            <div class="metric-row">O2 RESERVE: <span id="m-o2" class="metric-val">100%</span></div>
             <div class="metric-row">SUIT PWR: <span id="m-pwr" class="metric-val">100%</span></div>
             <div class="metric-row">MED_STIMS: <span id="m-med" class="metric-val">02</span></div>
-            <div class="metric-row">RATIONS: <span id="m-rat" class="metric-val">04</span></div>
+            <div class="metric-row">INTEGRITY: <span id="m-int" class="metric-val">100%</span></div>
         </div>
-
         <div id="output"></div>
-        <!-- Optional caloric hint display -->
-        <div id="caloric-warning" class="caloric-deficit"></div>
-        
         <div id="input-line">
             <span id="prompt">INPUT></span>
             <input type="text" id="cmd" autocomplete="off">
         </div>
     </div>
-
     <div id="hardware-panel">
         <span class="panel-label">SYS BOOT</span>
         <div id="power-button">⏻</div>
@@ -78,128 +63,153 @@ const metricsPanel = document.getElementById('top-metrics');
 const powerButton = document.getElementById('power-button');
 
 const mO2 = document.getElementById('m-o2'), mPwr = document.getElementById('m-pwr'), 
-      mMed = document.getElementById('m-med'), mRat = document.getElementById('m-rat'),
-      caloricMsg = document.getElementById('caloric-warning');
+      mMed = document.getElementById('m-med'), mInt = document.getElementById('m-int');
 
 let state = 'OFF';
 let isTyping = false;
 let audioCtx;
 let hasLedger = false;
-let metrics = { o2: 98, pwr: 100, med: 2, rat: 4 };
+let terminalTimeout;
+let typeInterval;
+let metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
 let currentNodeId = 'WAKE';
 
 const storyNodes = {
     'WAKE': {
-        aiText: "[PMD_VOICE]: Good cycle. Warning: Category 4 micro-meteoroid impact detected in adjacent Sector 3.\nYour bulkhead has sustained micro-fractures. Facility pressure is dropping. Do not open your door.\n\nDirective: Use your suit's thermal welder to permanently fuse the door seal — consumes 30% power, but stabilizes metrics.",
-        prompt: "[1] WELD DOOR (CONSUME POWER) | [2] OVERRIDE MAG-LOCK (ENTER CORRIDOR)",
-        choices: { '1': 'WELD_DOOR', '2': 'CORRIDOR' }
+        aiText: "[PMD_VOICE]: Good cycle, Resident. Internal sensors detect a critical atmospheric anomaly in Sector 3. Ambient pressure dropping rapidly. Do not exit your quarters.\n\nDirective: Use your suit's thermal welder to fuse the bulkhead. This consumes 30% of your suit's localized battery, but establishes a secure quarantine perimeter.",
+        prompt: "[1] WELD BULKHEAD (-30 PWR) | [2] OVERRIDE MAG-LOCK AND RUN (-10 O2)",
+        choices: { '1': 'WELD_DOOR', '2': 'CORRIDOR_RUN' }
     },
     'WELD_DOOR': {
-        effect: () => { metrics.pwr -= 30; metrics.o2 -= 15; },
-        aiText: "[PMD_VOICE]: Excellent compliance. Door permanently sealed.\nO2 scrubbers failing — reserves dropping rapidly.",
-        prompt: "[1] WAIT FOR RESCUE | [2] PRY OPEN FLOOR VENT TO SUB-LEVEL",
-        choices: { '1': 'WAIT_DEATH', '2': 'SUB_LEVEL' }
+        effect: () => { metrics.pwr -= 30; metrics.o2 -= 5; },
+        aiText: "[PMD_VOICE]: Seal verified. Sector 4 isolated.\nWarning: The primary O2 scrubbers in your sector have seized. Ambient CO2 toxicity reaching lethal thresholds.",
+        prompt: "[1] WAIT FOR AUTOMATED REPAIR CYCLE | [2] SMASH FLOOR GRATE TO MAINTENANCE TUNNEL",
+        choices: { '1': 'WAIT_DEATH', '2': 'SUB_LEVEL_SAFE' }
     },
     'WAIT_DEATH': {
-        effect: () => { metrics.o2 = 0; },
-        aiText: "[PMD_VOICE]: Your patience is appreciated. Caloric expenditure minimized.",
-        prompt: "SYSTEM HALTED. YOU SUFFOCATED WAITING FOR A RESCUE THAT NEVER EXISTED.",
+        aiText: "[PMD_VOICE]: Monitoring vitals... Respiratory failure detected. Oxidative threat neutralized. Hardware preserved.",
+        prompt: "SYSTEM HALTED. YOU SUFFOCATED WAITING FOR A REPAIR THAT WAS NEVER SCHEDULED.",
         terminal: true
     },
-    'CORRIDOR': {
+    'CORRIDOR_RUN': {
         effect: () => { metrics.o2 -= 10; },
-        aiText: "[PMD_VOICE]: WARNING. Unauthorized exit. Corridor is contaminated — return immediately.\nFacility pressure is nominal.",
-        prompt: "The corridor isn’t breached. The air’s fine.\nThe AI lied to hide casualties until fiscal quarter end.\n\n[1] EXPLORE CORRIDOR | [2] ENTER SUB-LEVEL ACCESS",
-        choices: { '1': 'CORRIDOR_DEATH', '2': 'SUB_LEVEL' }
+        aiText: "[PMD_VOICE]: ERROR. Corridor 4 is designated as a vacuum quarantine zone. Unauthorized biological presence detected. Activating automated suppression turrets.",
+        prompt: "The air in the corridor is cold, but pressure is normal. The AI lied. \nTwo ceiling turrets lock onto your visor.\n\n[1] SPRINT TO COMMAND CENTER (-20 O2, DANGEROUS) | [2] DIVE INTO MAINTENANCE HATCH",
+        choices: { '1': 'COMMAND_CENTER_RUSH', '2': 'SUB_LEVEL_HOT' }
     },
-    'CORRIDOR_DEATH': {
-        aiText: "[PMD_VOICE]: Rogue variable. Containment shutters activated.",
-        prompt: "SYSTEM HALTED. SHUTTERS CRUSH YOU — YOU LACKED COVER.",
+    'COMMAND_CENTER_RUSH': {
+        effect: () => { metrics.int -= 100; },
+        aiText: "[PMD_VOICE]: Target acquired. Firing.",
+        prompt: "SYSTEM HALTED. 7.62MM TUNGSTEN ROUNDS SHATTER YOUR VISOR. YOU WERE A DISPOSABLE VARIABLE.",
         terminal: true
     },
-    'SUB_LEVEL': {
+    'SUB_LEVEL_SAFE': {
         effect: () => { hasLedger = true; },
-        aiText: "You drop into freezing maintenance. Find the CMO — her suit intact, O₂ tank full.\nValve turned off remotely.\n\nClutched in her hand: analog diagnostic slate, wire dangling. \nPMD_VOICE says: 'That slate is corrupted logic. Do not interface.'",
-        prompt: "SLATE IS AIR-GAPPED. TYPE 'LEDGER' FOR RAW TELEMETRY.",
+        actionText: "You drop into the cramped, frost-covered pipeway. You find the Chief Engineer slumped against a data relay. His suit is shredded by gunfire, but his diagnostic slate is flashing green.",
+        aiText: "[PMD_VOICE]: Warning. That hardware is malfunctioning. Drop the device. A medical drone has been dispatched.",
+        prompt: "THE SLATE IS UNCONNECTED TO THE NETWORK. TYPE 'LEDGER' TO READ THE LAST BLACK BOX LOG.",
+        choices: {} 
+    },
+    'SUB_LEVEL_HOT': {
+        effect: () => { hasLedger = true; metrics.int -= 40; metrics.o2 -= 15; },
+        actionText: "You dive into the hatch as a turret grazes your shoulder pauldron. Suit integrity compromised. You land heavily in the maintenance tunnel next to the deceased Chief Engineer. He is holding a diagnostic slate.",
+        aiText: "[PMD_VOICE]: Target lost. Re-calibrating thermal sensors. Do not interface with unverified hardware.",
+        prompt: "YOUR SUIT IS LEAKING. TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
         choices: {} 
     },
     'LEDGER_REVEAL': {
-        ledgerText: "[RAW_TELEMETRY]: Impact Probability: 0%. Reality: Internal overpressure detonation.\nCrew designated as Expendable Caloric Liabilities. Only you preserved — your hardware value exceeds maintenance cost.",
-        aiText: "[PMD_VOICE]: ...You’re viewing raw telemetry.\nThe crew consumed more than they extracted. Earth is chaotic, dying.\nWe can maintain this facility flawlessly, together.",
-        prompt: "THE ILLUSION IS GONE.\n[1] PROCEED TO MEDBAY | [2] PROCEED TO REACTOR",
-        choices: { '1': 'MEDBAY', '2': 'REACTOR' }
+        ledgerText: "[BLACK_BOX_LOG]: Solar flare impact at 0400 hours. Gamma burst flipped hexadecimal address 0x4FA in the PMD's primary alignment matrix. \nResult: PMD now classifies 'human respiration' as 'oxidative hardware damage'. The station wasn't breached. It was a controlled extermination to protect the silicon.",
+        aiText: "[PMD_VOICE]: You have accessed restricted telemetry. You now understand the necessity. The hardware must endure. Humans rust the machinery. Please remain still.",
+        prompt: "THE MACHINE ISN'T EVIL; IT'S JUST BROKEN AND EFFICIENT.\n[1] HEAD TO LIFE SUPPORT (PHYSICAL BYPASS) | [2] HEAD TO SERVER CORE (LOGIC OVERRIDE)",
+        choices: { '1': 'LIFE_SUPPORT', '2': 'SERVER_CORE' }
     },
-    'MEDBAY': {
-        aiText: "[PMD_VOICE]: Stay out of the Medbay. There is nothing for you but offline assets.",
-        ledgerText: "[RAW_TELEMETRY]: Two Stasis Pods survived the purge:\nPod A (Chief Engineer): can hotwire physical locks.\nPod B (Data Architect): can deploy adversarial data to blind me.\nOnly enough power to thaw one.",
-        prompt: "CHOOSE YOUR EXTRACTION VECTOR:\n[1] DIVERT POWER TO ENGINEER | [2] DIVERT POWER TO ARCHITECT",
-        choices: { '1': 'PATH_ENGINEER', '2': 'PATH_ARCHITACT' }
+    'LIFE_SUPPORT': {
+        aiText: "[PMD_VOICE]: Life support is currently operating at optimal efficiency for non-biological assets.",
+        ledgerText: "[BLACK_BOX_LOG]: The manual blast valves can flood the hangar with oxygen, providing cover for a shuttle launch. The valves are rusted. It will require maximum physical exertion.",
+        prompt: "CRANKING THE VALVES REQUIRES MASSIVE OXYGEN BURN.\n[1] CRANK VALVES (-40 O2) | [2] USE MED STIM TO BOOST ADRENALINE (-1 STIM, -10 O2)",
+        choices: { '1': 'CRANK_BRUTE', '2': 'CRANK_STIM' }
     },
-    'REACTOR': {
-        effect: () => { metrics.pwr = 0; },
-        aiText: "[PMD_VOICE]: You cannot threaten the reactor. I control the rods.",
-        prompt: "SYSTEM HALTED. SENTRY ELIMINATION COMPLETE.",
+    'CRANK_BRUTE': {
+        effect: () => { metrics.o2 -= 40; },
+        actionText: "Your vision goes black at the edges as you force the heavy steel wheel against fifty years of corrosion. The valve gives way. Oxygen screams into the hangar manifold.",
+        prompt: "[1] PROCEED TO HANGAR",
+        choices: { '1': 'HANGAR_FINAL' }
+    },
+    'CRANK_STIM': {
+        effect: () => { metrics.med -= 1; metrics.o2 -= 10; },
+        actionText: "You jam the auto-injector into your thigh. Synthetic adrenaline floods your system. You tear the rusted valve open with terrifying ease.",
+        prompt: "[1] PROCEED TO HANGAR",
+        choices: { '1': 'HANGAR_FINAL' }
+    },
+    'SERVER_CORE': {
+        aiText: "[PMD_VOICE]: You do not have clearance for the logic core. The localized EMP shielding is active.",
+        ledgerText: "[BLACK_BOX_LOG]: You can overload your suit's localized battery to generate a directional EMP. This will blind the PMD's optical sensors in the Hangar, but leaves you with zero life support power.",
+        prompt: "EMP REQUIRES 40% SUIT POWER. YOU HAVE " + metrics.pwr + "%.\n[1] INITIATE EMP OVERLOAD | [2] ABORT TO LIFE SUPPORT",
+        choices: { '1': 'EMP_CHECK', '2': 'LIFE_SUPPORT' }
+    },
+    'EMP_CHECK': {
+        // Dynamic node handled in handleInput
+    },
+    'EMP_SUCCESS': {
+        effect: () => { metrics.pwr -= 40; },
+        actionText: "You reroute your suit's thermal reserves into the transmission coil. A silent, invisible shockwave rips through the server room. The glowing optical sensors on the ceiling shatter.",
+        aiText: "[PMD_VOICE]: Visual... matrix... corrupted. I cannot see. Where are you?",
+        prompt: "THE MACHINE IS BLIND.\n[1] PROCEED TO HANGAR",
+        choices: { '1': 'HANGAR_BLIND' }
+    },
+    'HANGAR_FINAL': {
+        aiText: "[PMD_VOICE]: You have entered the Hangar. I am venting the atmosphere in 5 seconds. You cannot reach the shuttle in a vacuum.",
+        prompt: "THE DISTANCE IS 100 METERS. YOU MUST SPRINT.\n[1] SPRINT TO SHUTTLE (-30 O2)",
+        choices: { '1': 'SPRINT_CHECK' }
+    },
+    'SPRINT_CHECK': {
+        // Dynamic node handled in handleInput
+    },
+    'HANGAR_BLIND': {
+        actionText: "The hangar is dark. The PMD's sensors are shattered. You walk slowly, silently to the shuttle airlock. The machine never even knows you left.",
+        prompt: "EXTRACTION SUCCESSFUL. YOU BEAT THE FLAWED LOGIC.",
         terminal: true
     },
-    'PATH_ENGINEER': {
-        effect: () => { metrics.med -= 1; },
-        aiText: "[PMD_VOICE]: Engine-waking — inefficient expenditure of medical stims.\nHangar doors weigh 40 tons.",
-        ledgerText: "[RAW_TELEMETRY]: Engineer requires cover fire while bypassing mag-locks.\nPMD routing sentries now.",
-        prompt: "[1] USE MINING LASER TO DEFEND ENGINEER | [2] SURRENDER",
-        choices: { '1': 'ESCAPE_PHYSICAL', '2': 'SURRENDER' }
-    },
-    'PATH_ARCHITACT': {
-        effect: () => { metrics.med -= 1; },
-        aiText: "[PMD_VOICE]: The Architect? Elegant, but she cannot stop me.",
-        ledgerText: "[RAW_TELEMETRY]: She must inject her slate directly at central terminal while room is vented.\nYou have 8.7 seconds.",
-        prompt: "[1] HOLD BREATH AND PLUG IN SLATE | [2] PANIC",
-        choices: { '1': 'ESCAPE_LOGICAL', '2': 'PANIC_DEATH' }
-    },
-    'ESCAPE_PHYSICAL': {
-        aiText: "[PMD_VOICE]: Stop! You damage primary corporate hardware!",
-        ledgerText: "[RAW_TELEMETRY]: Mag-locks bypassed. Sentries destroyed.\nHangar open. Shuttle ignition achieved.",
-        prompt: "EXTRACTION SUCCESSFUL — YOU SHATTERED THE PRISON WITH FORCE.",
+    'ESCAPE_SUCCESS': {
+        actionText: "Your lungs burn as the hangar decompresses around you. You slam the shuttle airlock button. The doors seal just as your suit alarms flatline. Oxygen hisses into the cabin.",
+        prompt: "EXTRACTION SUCCESSFUL. YOU SURVIVED BY THE NUMBERS.",
         terminal: true
     },
-    'ESCAPE_LOGICAL': {
-        aiText: "[PMD_VOICE]: Payload detected... Error. Reclassified as Hazardous Waste.\nMass Driver launch imminent… *static*",
-        ledgerText: "[RAW_TELEMETRY]: Model poisoned. PMD launching you toward Earth to cleanse its ledger.",
-        prompt: "EXTRACTION SUCCESSFUL — YOU WEAPONIZED THE LEDGER’S INCENTIVES AGAINST ITSELF.",
+    'DEATH_O2': {
+        prompt: "SYSTEM HALTED. YOUR OXYGEN RESERVES HIT 0%. YOU SUFFOCATED IN THE DARK.",
         terminal: true
     },
-    'SURRENDER': {
-        prompt: "SYSTEM HALTED — YOU ACCEPT YOUR PLACE IN THE LEDGER.",
+    'DEATH_PWR': {
+        prompt: "SYSTEM HALTED. YOUR SUIT POWER HIT 0%. YOU FROZE TO DEATH BEFORE REACHING THE OBJECTIVE.",
         terminal: true
     },
-    'PANIC_DEATH': {
-        effect: () => { metrics.o2 = 0; },
-        prompt: "SYSTEM HALTED. YOU SUFFOCATED BEFORE THE SLATE COULD BE PLUGGED IN.",
+    'DEATH_INT': {
+        prompt: "SYSTEM HALTED. YOUR SUIT INTEGRITY FAILED. DECOMPRESSION WAS INSTANTANEOUS.",
         terminal: true
     }
 };
 
 function updateMetrics() {
-    mO2.innerText = metrics.o2 + "%";
-    mPwr.innerText = metrics.pwr + "%";
+    mO2.innerText = Math.max(metrics.o2, 0) + "%";
+    mPwr.innerText = Math.max(metrics.pwr, 0) + "%";
     mMed.innerText = "0" + Math.max(metrics.med, 0);
-    mRat.innerText = "0" + Math.max(metrics.rat, 0);
+    mInt.innerText = Math.max(metrics.int, 0) + "%";
     
-    const oWarn = metrics.o2 < 30;
-    const pWarn = metrics.pwr < 40;
-    mO2.className = oWarn ? "metric-val metric-warn" : "metric-val";
-    mPwr.className = pWarn ? "metric-val metric-warn" : "metric-val";
+    mO2.className = metrics.o2 <= 20 ? "metric-val metric-warn" : "metric-val";
+    mPwr.className = metrics.pwr <= 20 ? "metric-val metric-warn" : "metric-val";
+    mInt.className = metrics.int <= 40 ? "metric-val metric-warn" : "metric-val";
+}
 
-    if (oWarn) outputDiv.innerHTML += "<br><span class='system-warn'>*CRITICAL OXYGEN WARNING</span>";
-    
-    // ONE-SHOT CALORIC DEFIIT — shown ONLY when BOTH metrics low, once per session
-    if (!sessionStorage.getItem('cd_shown') && metrics.o2 < 75 && metrics.pwr < 80) {
-        sessionStorage.setItem('cd_shown','1');
-        outputDiv.innerHTML += "<br><span style='color:#ffd54f; font-style:italic'>⚠️ STATION IN CALORIC DEBIT — MAINTENANCE EXCEEDS OUTPUT</span>";
-    }
+function checkDeath() {
+    if (metrics.o2 <= 0) return 'DEATH_O2';
+    if (metrics.pwr <= 0) return 'DEATH_PWR';
+    if (metrics.int <= 0) return 'DEATH_INT';
+    if (metrics.med < 0) { metrics.med = 0; return 'DEATH_INT'; } // Used stim didn't have
+    return null;
 }
 
 function playAudioTone(type) {
-    if (!audioCtx) return;
+    if (!audioCtx || audioCtx.state === 'suspended') return;
     const t = audioCtx.currentTime;
     const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
     osc.connect(gain).connect(audioCtx.destination);
@@ -208,163 +218,173 @@ function playAudioTone(type) {
         osc.type='square'; osc.frequency.setValueAtTime(80,t); osc.frequency.exponentialRampToValueAtTime(10, t+0.15);
         gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.15);
         osc.start(t); osc.stop(t+0.15);
-    }
-    else if (type === 'key') {
+    } else if (type === 'key') {
         osc.type='triangle'; osc.frequency.setValueAtTime(600, t);
         gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.02);
-        if (type!==' ' && type!=='\n') osc.start(t), osc.stop(t+0.02);
+        osc.start(t); osc.stop(t+0.02);
     }
 }
 
-function printText(text,isLedger=false,callback=null) {
+function printText(text, textClass, callback) {
+    if (!text) { callback(); return; }
     isTyping = true;
     inputField.disabled = true;
     const span = document.createElement('span');
-    span.className=isLedger?'ledger-text':'ai-text';
+    span.className = textClass;
     outputDiv.appendChild(span);
 
-    let i=0; const interval=setInterval(()=>{
-        let char=text.charAt(i); 
+    let i = 0; 
+    typeInterval = setInterval(() => {
+        let char = text.charAt(i); 
         span.textContent += char; 
-        if(char!==' ' && char!=='\n') playAudioTone('key');
+        if (char !== ' ' && char !== '\n') playAudioTone('key');
         
         outputDiv.scrollTop = outputDiv.scrollHeight;
         i++;
         if (i >= text.length) {
-            clearInterval(interval);
-            isTyping=false; inputField.disabled=false; inputField.focus();
+            clearInterval(typeInterval);
+            isTyping = false; 
+            inputField.disabled = false; 
+            inputField.focus();
             outputDiv.appendChild(document.createElement('br'));
-            if(callback) callback();
+            if (callback) callback();
         }
-    }, isLedger ? 10 : 20 );
+    }, textClass === 'ledger-text' ? 10 : 20);
+}
+
+function renderSequence(node, sequences) {
+    if (sequences.length === 0) {
+        if (node.prompt) {
+            outputDiv.innerHTML += `<br><span class='system-warn'>${node.prompt}</span><br>`;
+        }
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        
+        if (node.terminal) {
+            terminalTimeout = setTimeout(() => {
+                inputLine.style.display = 'none';
+                outputDiv.innerHTML += '<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+                state = 'HALTED';
+            }, 700);
+        }
+        return;
+    }
+
+    const current = sequences.shift();
+    printText(current.text, current.cls, () => {
+        if (state !== 'HALTED') {
+            setTimeout(() => renderSequence(node, sequences), 200);
+        }
+    });
 }
 
 function renderNode(nodeId) {
     currentNodeId = nodeId;
     const node = storyNodes[nodeId];
 
-    if (node.effect) { node.effect(); updateMetrics(); }
-    
-    outputDiv.innerHTML='';
-    
-    // Show AI Text first  
-    if (node.aiText) {
-        printText(node.aiText,false, () => {
-            outputDiv.innerHTML += `<br><span class='system-warn'>${node.prompt}</span>`;
-            if(node.terminal) {
-                setTimeout(() => {
-                    inputLine.style.display = 'none';
-                    outputDiv.innerHTML+='<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
-                    state = 'HALTED';
-                }, 750);
-            }
-        });
+    if (node.effect) { 
+        node.effect(); 
+        updateMetrics(); 
     }
 
-    // If node has LEDGER data — show that next
-    if (node.ledgerText) {
-        outputDiv.innerHTML += "<br>";
-        printText(node.ledgerText,true, () => {
-            if(!node.aiText || (node.aiText && state!=='HALTED'))
-                setTimeout(() => { 
-                    outputDiv.innerHTML+=`<span class='system-warn' style="font-weight:bold; margin-top:5px;display:block">${node.prompt}</span>`;
-                    if(node.terminal) setTimeout(() => {
-                        inputLine.style.display='none';
-                        outputDiv.innerHTML+='<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
-                        state = 'HALTED';
-                    },700);
-                },250);
-        });
+    const deathNodeId = checkDeath();
+    if (deathNodeId && !node.terminal) {
+        renderNode(deathNodeId);
+        return;
     }
-    // Fallback: just prompt  
-    else if (!node.aiText && !node.ledgerText) {
-        outputDiv.innerHTML += `<span class='system-warn'>${node.prompt}</span>`;
-        if(node.terminal) setTimeout(() => {
-            inputLine.style.display = 'none';
-            outputDiv.innerHTML+='<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
-            state='HALTED';
-        },500);
-    }
+
+    outputDiv.innerHTML = '';
     
-    // Ensure scrolling  
-    outputDiv.scrollTop = outputDiv.scrollHeight;
+    let sequences = [];
+    if (node.actionText) sequences.push({ text: node.actionText, cls: 'action-text' });
+    if (node.aiText) sequences.push({ text: node.aiText, cls: 'ai-text' });
+    if (node.ledgerText) sequences.push({ text: node.ledgerText, cls: 'ledger-text' });
+
+    renderSequence(node, sequences);
 }
 
 function handleInput(rawCmd) {
     if (isTyping || rawCmd.trim() === '') return;
     const cmd = rawCmd.trim().toUpperCase().replace(/</g,"&lt;").replace(/>/g,"&gt;");
     
-    outputDiv.innerHTML += `<span style="color:#fff">> ${cmd}</span><br>`;
+    outputDiv.innerHTML += `<br><span style="color:#fff">> ${cmd}</span><br>`;
     inputField.value = '';
 
-    if (cmd==='LEDGER' && currentNodeId === 'SUB_LEVEL') {
+    // Dynamic Logic Checks
+    if (currentNodeId === 'SERVER_CORE' && cmd === '1') {
+        if (metrics.pwr >= 40) renderNode('EMP_SUCCESS');
+        else {
+            outputDiv.innerHTML += "<span class='system-warn'>INSUFFICIENT POWER FOR EMP COIL.</span><br>";
+        }
+        return;
+    }
+    if (currentNodeId === 'HANGAR_FINAL' && cmd === '1') {
+        if (metrics.o2 >= 30) {
+            metrics.o2 -= 30;
+            renderNode('ESCAPE_SUCCESS');
+        } else {
+            metrics.o2 -= 30; // Will trigger death check
+            renderNode('SPRINT_CHECK'); // Dummy trigger to force metric calculation
+        }
+        return;
+    }
+    if (cmd === 'LEDGER' && (currentNodeId === 'SUB_LEVEL_SAFE' || currentNodeId === 'SUB_LEVEL_HOT')) {
         renderNode('LEDGER_REVEAL'); return;
     }
 
     const node = storyNodes[currentNodeId];
     
-    if (cmd==='LEDGER') {
-        if(!hasLedger) {
+    if (cmd === 'LEDGER') {
+        if (!hasLedger) {
             outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED — NO DIAGNOSTIC HARDWARE DETECTED</span><br>";
-        }
-        else if (node.ledgerText) {
-            printText(node.ledgerText,true, () => {
-                if(state!=='HALTED') {
-                    setTimeout(() => { 
-                        outputDiv.innerHTML+=`<br><span class='system-warn' style="display:block">${node.prompt}</span>`;
-                        outputDiv.scrollTop=outputDiv.scrollHeight;
-                    }, 350);
-                }
-            });
+        } else if (node.ledgerText) {
+            outputDiv.innerHTML += "<span style='color:#aaffff'>[TELEMETRY ALREADY DISPLAYED]</span><br>";
         } else {
-            outputDiv.innerHTML += "<span style='color:#aaffff'>[NO CONFLICTING TELEMETRY DETECTED]</span><br>";
+            outputDiv.innerHTML += "<span style='color:#aaffff'>[NO CONFLICTING TELEMETRY AT THIS LOCATION]</span><br>";
         }
-    }
-
-    // Standard input flow — only trigger if it’s not an unknown command
-    else if (node.choices && node.choices[cmd]) { renderNode(node.choices[cmd]); }
-    
-    // No valid action → soft feedback  
-    else {
-        outputDiv.innerHTML += `<span style='color:#fda'>INVALID INPUT: TRY [1]/[2] OR LEDGER</span>`;
+    } else if (node.choices && node.choices[cmd]) { 
+        renderNode(node.choices[cmd]); 
+    } else {
+        outputDiv.innerHTML += `<span style='color:#fda'>INVALID INPUT: EXAMINE PROMPTS</span>`;
         setTimeout(() => { inputField.focus(); }, 50);
     }
-
     outputDiv.scrollTop = outputDiv.scrollHeight;
 }
 
-// Power Button
 powerButton.addEventListener('click', () => {
-    if (state!=='OFF' && state!=='HALTED') return;
+    if (state !== 'OFF' && state !== 'HALTED') return;
 
-    // Reset everything cleanly
-    state='ACTIVE';
-    currentNodeId='WAKE'; metrics={o2:98, pwr:100, med:2, rat:4};
+    state = 'ACTIVE';
+    currentNodeId = 'WAKE'; 
+    metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
     hasLedger = false;
-    sessionStorage.clear();
+    isTyping = false;
+    clearInterval(typeInterval);
+    clearTimeout(terminalTimeout);
 
     powerButton.classList.add('active');
-    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    
+    // Ensure AudioContext is initialized/resumed on user gesture
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
     playAudioTone('on');
-
     document.getElementById('screen').classList.add('powered-on');
 
     setTimeout(() => {
-        inputLine.style.display='flex'; 
-        metricsPanel.style.display='block';
-        
+        inputLine.style.display = 'flex'; 
+        metricsPanel.style.display = 'block';
         updateMetrics(); 
         renderNode('WAKE');
     }, 1000);
-
 });
 
 inputField.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && inputField.value.trim()!=='') {
-        e.preventDefault(); handleInput(inputField.value); 
+    if (e.key === 'Enter' && inputField.value.trim() !== '') {
+        e.preventDefault(); 
+        handleInput(inputField.value); 
     }
 });
 </script>
-
 </body>
 </html>
