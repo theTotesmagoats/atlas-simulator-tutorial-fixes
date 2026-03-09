@@ -2,618 +2,629 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MOON_BASE_TERMINAL v1.04 • AIRLOCK A-7</title>
+    <title>MOON_BASE_TERMINAL v1.05 • AIRLOCK A-7</title>
     <style>
-        /* === RETRO TERMINAL AESTHETICS (WITH PHYSICS-APPROPRIATE GRIMINESS) === */
+        /* === RETRO TERMINAL AESTHETICS === */
         body {
             margin: 0;
-            background: #050500; /* lunar darkness black */
+            background-color: #0a0a04;
             color: #dcdcdc;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: "Courier New", Courier, monospace;
             height: 100vh;
             overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
         }
-        /* Scanlines and phosphor bloom via pseudo-elements */
-        #terminal::before,
-        #terminal::after {
-            content: " ";
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            z-index: -1;
-        }
-        /* Scanlines (like a CRT, not LCD) */
-        #terminal::before {
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 3px, 3px 100%;
-        }
-        /* Subtle screen curvature and phosphor persistence glow */
-        #terminal::after {
-            background: radial-gradient(circle at center, transparent 75%, rgba(0, 0, 0, 0.8) 100%);
-            box-shadow: inset 0 0 8rem rgba(216,203,156,0.3); /* yellowish bloom */
-        }
-
+        
         #terminal {
             width: 92%;
-            max-width: 960px;
+            max-width: 800px;
             height: 90vh;
-            padding: 1.5rem;
-            border: 2px solid #8b7c6e; /* aluminum frame color */
-            border-radius: 3rem 2rem / 4rem 3rem;
-            background-color: #1f211b; /* deep CRT grey-black */
-            box-shadow:
-                0 0 1rem rgba(0, 255, 90, 0.0),
-                inset 0 0 80px #171a14;
-            display: flex;
-            flex-direction: column;
+            padding: 2rem;
+            border: 3px double #7d6b5e; 
+            border-radius: 3.5rem/5rem;
+            background-color: #161814; /* dark CRT grey-black */
+            position: relative;
         }
-
+        
         #boot-log {
-            font-family: "Courier New", monospace;
-            color: #0f0; /* terminal green for boot */
-            line-height: 1.3rem;
+            font-size: 0.9rem;
+            color: #4caf50; 
+            line-height: 1.5;
             overflow-y: auto;
-            white-space: pre-wrap;
             height: 45%;
         }
         
-        .crt-line {
-            animation: phosphorFade 2s forwards;
-        }
-
-        @keyframes phosphorFade { from { opacity: 1; text-shadow: 0 0 6px #3f9; } to { opacity: 0.75; } }
-
-        #status-bar {
-            margin: 1rem 0 1.25rem;
-            font-weight: bold;
-            border-top: 2px solid rgba(0, 255, 90, 0.3);
-            border-bottom: 2px solid rgba(0, 255, 90, 0.3);
-            padding: 0.4rem 0;
-            color: #e76; /* warning yellow */
+        @keyframes flicker { 
+            0%,100% {opacity: 1;}
+            97% { opacity: .96; }
+            98% { opacity: 0.92; }
         }
 
         #history {
-            flex-grow: 1;
+            height: 50%;
             overflow-y: auto;
-            font-family: "Courier New", monospace;
+            margin-bottom: 0.75rem;
             font-size: 1rem;
-            line-height: 1.5;
-            padding: 0;
-            color: #dcdcdc;
+            line-height: 1.6;
             white-space: pre-wrap;
         }
-        .message { margin-bottom: 0.9rem; }
-        .system-text { color: #8ad6a2; } /* cool system green */
-        .warning { color: #fca; text-shadow: 1px 0 3px rgba(255,0,0,0.7); }
-        .item-get { color: #d8e9ff; font-weight: bold; }
         
-        #input-area {
-            display: flex;
-            margin-top: auto;
-            position: relative;
-            align-items: center;
-            background-color: rgba(12,13,10, 0.95);
-            padding: 0.5rem 1rem;
-            border-radius: 0 0 3px 3px;
+        .msg { margin-bottom: 1em; display: block; padding-left: 2ch;}
+        .sys-msg { color: #4caf50; }
+        .warn { color: #ffd700; text-shadow: 1px 1px 0px #664400; }
+        .hint-text { color: #8ab9ff; font-weight: bold;}
+        .system-title {
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #d3c5b0;
+            font-weight: 700;
         }
-        #prompt { margin-right: 8px; color: #0f0; font-weight: bold; }
+
+        #status-bar {
+            border-top: 2px solid #4caf50; 
+            padding-top: 8px;
+            margin-bottom: 1em;
+            text-align: left;
+        }
+        .oxygen-val { color: #d3c5b0; font-weight: bold; }
+        .status-indicator {
+            background: #0f2614; color: #8ab9ff;
+            border-radius: 3px; padding: 3px 6px;
+        }
+        
+        /* THE HINT MECHANIC — visible only on hover */
+        .word-hint-container {
+            display: inline-block;
+            position: relative;
+            cursor: help;
+        }
+        
+        .hint-bubble {
+            position: absolute;
+            z-index: 100;
+            top: 110%;
+            left: -5ch;
+            width: max-content;
+            background: rgba(0, 34, 26, 0.95); /* lunar-greenish black */
+            border: 1px solid #4caf50;
+            padding: 5px 8px;
+            border-radius: 4px;
+            color: #aef;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            transform-origin: top left;
+            animation: fadeUp 0.3s ease-out forwards;
+            opacity: 0; 
+        }
+        
+        @keyframes fadeUp { 
+            from { transform: translateY(15px); opacity: 0; }
+            to { transform: translateY(0px); opacity: 1; } 
+        }
+
+        #input-area {
+            position: relative;
+        }
+        #prompt { color: #4caf50; margin-right: 0.5ch; font-weight: bold;}
         #input {
             flex-grow: 1;
-            background: transparent;
-            border: none;
-            color: white;
-            font-family: inherit;
-            font-size: 1rem;
+            background-color: rgba(15,18,13, 0.9);
+            border: none; padding: 6px;
+            color: white; font-size: 1rem;
+            font-family: "Courier New", monospace;
+            caret-color: #aef;
             outline: none;
-            caret-color: #d3f728; /* glowing terminal cursor */
+        }
+
+        .hint-trigger {
+            cursor: pointer;
+            display: inline-block;
         }
         
-        /* CRT Flicker animation — subtle but present, not migraine-inducing */
-        @keyframes flicker {
-            0% { opacity: .995 }
-            5% { opacity: .96 }
-            10% { opacity: .975 }
-            15% { opacity: .94 }
-            20% { opacity: .98 }
-            50% { opacity: .96 }
-            80% { opacity: .97 }
-            100% { opacity: .993 }
-        }
-        #terminal > * { animation: flicker 0.1s infinite; }
-
-        /* Scrollbar styling (minimal) */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0c0d0a;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #3f4739;
-        }
-
+        /* Scrollbar */
+        ::-webkit-scrollbar { width:8px; background:#0f1310;}
+        ::-webkit-scrollbar-thumb {background: #3d463a;border-radius: 8px;}
+        
     </style>
 </head>
 <body>
 
 <div id="terminal">
-    <div id="boot-log"></div>
-    <div id="status-bar">STATUS: [AIRMIX 92%] | OXYGEN: [2hr15m] | COMMS: OFFLINE • SECURE</div>
+    <div id="boot-log">Initializing boot sequence…</div>
     
-    <!-- Game history goes here -->
-    <div id="history" onclick="document.getElementById('input').focus()"></div>
-    
-    <!-- Input area with sound feedback -->
+    <!-- The terminal display where all story unfolds -->
+    <div id="history"></div>
+
+    <!-- The status line at top of game output area -->
+    <div id="status-bar" style="font-size: 1rem;">
+        [AIRMIX STABLE] 
+        | OXYGEN REMAINING: <span class="oxygen-val" id="oxygen">~3hr02m</span>
+        | COMMS STATUS: 
+        <span class="status-indicator">OFFLINE</span>
+    </div>
+
+    <!-- Game Input Line -->
     <form id="input-area">
         <span id="prompt">user@luna-airlockA7:~$</span>
-        <input type="text" id="input" autocomplete="off" spellcheck="false" autofocus>
+        <input type="text" id="input" placeholder="[type a command...] (try 'help')" autocomplete="off">
     </form>
+
+    <!-- HINT BUBBLE (hidden unless hovering over word) -->
+    <div style="position:absolute; right:-2%; top:30%;" 
+         id="hoverHintBox" class="word-hint-container" hidden>
+        <div id="hintText"></div>
+    </div>
 </div>
 
 <script>
-/**
- * MECHANICAL KEYBOARD AUDIO FEEDBACK  
- * (uses Web Audio API — pure oscillator, no samples)
- */
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let lastClickTime = 0;
-
-function playKeySound(char) {
-    if (!char || char.length > 1 || /[^A-Za-z0-9!@#$%^&*()_+-={}|;':",./<>?\$\\$`~\s]/.test(char)) return;
-    const now = audioCtx.currentTime;
-    
-    // If space or enter — slightly heavier "thock"
-    if (char === ' ') {
-        playClick(now, 850, 'square', -30); 
-        setTimeout(() => playClick(now+0.04, 120, 'triangle', -10), 12);
-    } else if (char === '\r') {
-        playClick(now, 950, 'sawtooth', -28);
-        setTimeout(() => playClick(now+0.07, 350, 'sine', -18), 25);
-    } else {
-        // Classic IBM Model M-style click (fast decay)
-        const duration = Math.random() * 45 + 45; // 45-90ms
-        const pitchBase = char.toUpperCase().charCodeAt(0) % 7 === 0 ? 1024 : 
-                         (char.toUpperCase().charCodeAt(0) % 3 === 0 ? 1400 : 820);
-        playClick(now, pitchBase, 'square', -25);
-    }
-}
-
-function playClick(t, freq, waveType, gaindB) {
-    const osc = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-
-    // Avoid clicking when changing gain by using ramp
-    gainNode.gain.setValueAtTime(0, t);
-    gainNode.gain.linearRampToValueAtTime(Math.pow(10, gaindB / 20), t + 0.01);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration / 1000);
-
-    osc.frequency.value = freq;
-    osc.type = waveType;
-    // Filter to make it less ear-splitting
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = char === '\r' ? 1800 : (char === ' ' ? 600 : 3500);
-
-    osc.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(t + 0.2);
-}
-
-
-/**
- * GAME ENGINE — MINIMAL STATE, MAXIMUM IMPACT
- */
+// === CORE GAME STATE ===
 const game = {
-    room: "airlock",
     inventory: [],
-    status: { oxygenHours: 2.25, oxygenMins: 15 },
-    objectives: {
-        checkAir: false,
-        powerUpTablet: false,
-        runDiagnostics: false,
-        commsAvailable: false
-    },
-    cluesFound: []
+    oxygenMins: 182, // starting at ~3h02m (after brief boot time)
+    room: "airlock",
+    clues: [],
+    history: []
 };
 
-const bootSequence = [
-    "> SYSTEM CHECK...",
-    "  - Core OS... [OK]",
-    "  - Hydroponics Control... [UNREACHABLE]",
-    "  - Structural Integrity... [91%]", 
-    "> AIR LOCK SEALS ENGAGED — E-MAJOR EVENT #L7",
-    "> SECURITY OVERRIDE ACTIVE (KEY: COLD START)",
-    "> INITIALIZING TERMINAL INTERFACE...",
-];
+function getOxygenString() { return `~${Math.floor(game.oxygenMins / 60)}h ${game.oxygenMins % 60}m`; }
 
-let lineCount = 0;
+const bootText = [
+    "[INITIALIZING…]",
+    " > Memory self-test... PASS", 
+    " > System clock synced (Lunar UTC: 0735)",
+    " > ALERT — Event L7 Detected. Airlocks A-G Sealed.",
+    " > USER: PLAYER One — No distress signal found in logs.",
+    " > Status: Survivable Atmosphere.", 
+    " > WARNING — Backup Power Only."
+].join("\n") + "\n\n";
 
-// Boot animation with sound (every time a character prints, it feels tactile)
-async function bootUp() {
-    const logEl = document.getElementById("boot-log");
-    let delay = 300;
-    
-    // Initial silence — just start typing
-    const keyBuffer = bootSequence.join("\n") + "\n";
-    
-    // Simulate slow boot with typewriter effect
-    for (let i = 0; i < bootSequence.length; i++) {
-        const span = document.createElement("div");
-        span.textContent = bootSequence[i];
-        logEl.appendChild(span);
-        playKeySound('\r');
-        await wait(delay + Math.random()*200);
-        if (delay > 50) delay -= 25; // boot gets faster
-    }
+const terminal = document.getElementById("history");
+const bootDiv = document.getElementById("boot-log");
+const statusEl = document.getElementById('status-bar');
 
-    playKeySound('\n');
-    
-    document.getElementById("boot-log").style.display = 'none';
-    
-    game.addOutput("> CONNECTION ESTABLISHED\n" + 
-                  "> WARNING: Airlock A-7 sealed at 03:42 UTC (Event L7).\n" +
-                  "> You are the sole occupant.\n");
+function render() {
+    // Show only the last 18 messages in history to avoid memory issues
+    const lastLines = game.history.slice(-18).join("\n\n"); 
+    terminal.innerHTML = lastLines;
+
+    if (game.oxygenMins < 10) { statusEl.innerHTML += '<br><span class="warn" style="display:block">[CRITICAL: OXYGEN LOW]</span>'; }
+
+    document.getElementById("oxygen").innerText = getOxygenString();
 }
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-const historyEl = document.getElementById('history');
-
-// Main output function (with scroll control & line limits for realism)
-game.addOutput = function(text, type = "normal") {
-    // Preserve only last ~30 lines of scrolling
-    const allLines = historyEl.textContent.split('\n').filter(Boolean);
-    if (allLines.length > 24) {
-        const toRemove = allLines.length - 24 + Math.ceil(Math.random());
-        allLines.splice(0, toRemove); 
-        // Update innerText only for performance
-        historyEl.innerHTML = allLines.map(l => `<div class="message">${l}</div>`).join("\n");
-    }
-
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `message ${type === 'system' ? 'system-text' : type === 'warn' ? 'warning' : ''}`;
-    msgDiv.textContent = text;
-
-    historyEl.appendChild(msgDiv);
+function bootGame() {
+    // Simple typewriter effect
+    const charsPerLine = 60;
     
-    // Auto-scroll
-    historyEl.scrollTop = historyEl.scrollHeight;
-};
-
-game.handleInput = async function(cmd) {
-    const cleanCmd = cmd.trim().toLowerCase();
-    if (cleanCmd.length > 0) {
-        this.addOutput(`user@luna-airlockA7:~$ ${cmd}`, "normal");
-        playKeySound('\r');
-        playKeySound('\n');
-
-        await processCommand(cleanCmd);
-    }
-};
-
-// THE REAL WORKHORSE — where every decision matters
-async function processCommand(cmd) {
-    const words = cmd.split(/\s+/);
-
-    if (!words[0] || words.length === 0) return;
-
-    switch(game.room) {
-        case "airlock":
-            // AIRLOCK A-7 SCENARIOS  
-            
-            // Look around
-            if (["look", "l"].includes(words[0])) {
-                if (words.includes("viewport")) {
-                    game.addOutput(
-                        "Through the cracked viewport, corridor B is pitch-black — no motion in any camera.\n" + 
-                        "Except… a faint flicker at Junction 5. Maybe? You'll have to go there to check.", "normal");
-                }
-                else if (words.includes("console") || words.includes("terminal")) {
-                    game.addOutput(
-                        "[Comms Console]\n" +
-                        "  Screen shows: ‘TRANSMIT FAILURE – T/R MODULE OFFLINE’. \n" +
-                        "  Red LEDs blink: M.2.01 – FREQ STANDBY — [357MHz] NOT LOCKED.", "normal");
-                    game.cluesFound.push("frequency=357");
-                }
-                else if (words.includes("locker") || words.includes("lock")) {
-                    game.addOutput(
-                        "The emergency locker’s magnetic bolt is still armed. A label says: \n" +
-                        "  'DO NOT OPEN — CONTAMINATION RISK' \n" + 
-                        "  ...but it's not locked. You have access.", "warn");
-                }
-                else if (words.includes("table") || words.includes("terminal")) {
-                    game.addOutput(
-                        "Your personal tablet dock is powered but unresponsive: ‘NO BATTERY DETECTED’. \n" + 
-                        "It needs its own charge — the base grid won't speak to sealed sectors.", "system");
-                }
-                else if (words.length < 2 || words.includes("room")) {
-                    game.addOutput(
-                        `STATUS UPDATE\nOXYGEN REMAINING: ~${Math.floor(game.status.oxygenHours)}h ${game.status.oxygenMins}m\n` +
-                        "\n" + 
-                        "[Airlock A-7 — Main Chamber]\n" + 
-                        " • A heavy bulkhead door — sealed, with 'ACCESS DENIED' pulsing in red.\n" + 
-                        " • Comms Console: dead except for standby blink. \n" + 
-                        " • Emergency Locker: open (magnets disengaged post-event?)\n" +
-                        " • Maintenance Tablet: requires local power (battery gone).", "system");
-                }
+    async function typeLine(line) {
+        bootDiv.innerText += "\n";
+        const words = line.split(' ');
+        let currentLine = '';
+        for (let w of words) {
+            currentLine += `${w} `;
+            if (currentLine.length >= charsPerLine/2) { 
+                bootDiv.innerText += currentLine;
+                currentLine = ''; await new Promise(r => setTimeout(r, Math.random()*50 + 30));
+            } else if (w === "ERROR" || w === "ALERT") {
+                 bootDiv.innerText += `<span style="color:#ff9; font-weight:bold">${w} </span>`;
+                 await new Promise(r => setTimeout(r, 45));
             }
-
-            // Open locker
-            else if (words[0] === ["open"].includes(words[0]) || words.includes("locker") && words.length < 3) {
-                game.addOutput(
-                    "You pull the emergency lever — *CLUNK!* — magnetic bolts release with a hiss.\n" + 
-                    "Inside:\n" + 
-                    "   • Portable air filter kit (basic CO2 scrubber)\n" + 
-                    "   • Emergency flashlight (4xAA, 6hr runtime) \n" + 
-                    "   • Battery pack (9V backup — tiny but *is* usable.\n)", "normal");
-                
-                game.inventory.push("filter", "flashlight", "battery_9v");
-                // Only if you say so
-            }
-
-            // Use flashlight to see into corridor (requires flashlight in inventory)
-            else if ((words.includes("flashlight") || words.includes("use")) && game.inventory.includes("flashlight") && words.includes("corridor") || 
-                    (["flashlight","laserpen","shine"].includes(words[0]) && ["corridor","hall"].some(w => cmd.includes(w)))) {
-                if (!game.inventory.includes("flashlight")) {
-                    game.addOutput(
-                        "You pat your suit pockets. Nothing. Maybe it's in the locker…\n", "warn");
-                }
-                else {
-                    game.addOutput(
-                        "*Click* \n\n" +
-                        "A pale white beam cuts through the gloom: the bulkhead's emergency lights flicker weakly — you're safe.\n" + 
-                        "In corridor B, light glints off glass: a shattered panel near Junction 5. And… wires hanging loose?\n" + 
-                        "*Could be the power surge that knocked out your terminal.*", "normal");
-                    
-                    if (!game.cluesFound.includes("loose_wires")) {
-                        game.addOutput(
-                            "There's an unshielded spool labeled 'COMMS-BACKUP / RED' nearby.", "system");
-                        game.cluesFound.push("loose_wires");
-                    }
-                }
-            }
-
-            // Comms console actions  
-            else if (words.includes("console") || words[0].includes("comms")) {
-                if (!game.inventory.includes("battery_9v")) {
-                    game.addOutput(
-                        "The console hums… but no power. It draws 4W — way more than your main systems use idle.\n" +
-                        "*Earth needs clear transmission, not just a light.*\n", "warn");
-                }
-                else if (!game.cluesFound.includes("loose_wires")) {
-                    game.addOutput(
-                        "You flip the transmit override. LEDs scream ‘ERROR – TRANSDUCER FAIL’.\n" + 
-                        "A warning flashes: \n  >> ‘Antenna array not responding. Verify line integrity at Junction 5.’\n", "warn");
-                }
-                else {
-                    game.addOutput(
-                        "[DIAGNOSTIC OUTPUT]\n" + 
-                        "- Voltage: 32V (STABLE)\n" +
-                        "- T/R module temperature: CRITICAL → COOLING FANS OFF\n" +
-                        "- Signal path broken: COMMS-BACKUP / RED (J5) \n", "system");
-
-                    // The *real* choice comes in
-                    game.addOutput(
-                        "*Would you like to bypass the safety interlock at J5?* (Requires: battery + wires + 12V rating)\n" +
-                        ">  Y/n (yes/no)", "normal");
-                    
-                    if (words.length > 1 && ["yes", "y"].includes(words[1])) {
-                        await wait(600);
-                        game.addOutput(
-                            "*You twist the red spool onto the terminal's antenna post. The lights go steady — but now… silence.*\n" + 
-                            "Transmit button lit… but you haven’t selected a carrier wave yet.\n" + 
-                            "[COMMS MODES AVAILABLE]\n" +
-                            "   1. LOW-BAND — Slow, robust, Earth picks up (takes 7min to connect)\n" +
-                            "   2. BURST — Instant, high-power, but can be mistaken for debris impact.\n", "normal");
-                    }
-                }
-            }
-
-            // Battery + filter use cases (system logic: air first? power later?)
-            else if ((words[0].includes("air") || words.includes("scrub")) && game.inventory.includes("filter")) {
-                game.status.oxygenHours += 1; // give one hour more
-                game.status.oxygenMins = 59;
-                game.addOutput(
-                    "You slot in the scrubber cartridge and run cycle: \n" + 
-                    "> CO₂ levels: 0.7% → 0.2%\n" +
-                    "*Air tastes crisper now.* Oxygen extended: ~3 hours total.\n", "system");
-                
-                game.inventory.splice(game.inventory.indexOf("filter"),1); // one-use filter
-            }
-            
-            else if (words[0] === "help") {
-                game.addOutput(
-                    `COMMANDS:
- - LOOK [object]
- - OPEN [locker|door]
- - USE [battery, flashlight] [on object]
- - INVENTORY / i  
-`, "normal");
-            }
-            else if (["inv","i"].includes(words[0])) {
-                const inv = game.inventory.length ? 
-                        `Inventory: ${game.inventory.map(x => "["+x+"]").join(" ")}` :
-                        "Empty";
-                game.addOutput(inv);
-            }
-            
-            // Endings (basic state triggers)
-            else if (words[0] === ["wait", "rest", "sleep"].includes(words[0])) {
-                await wait(800);
-                game.status.oxygenHours -= 0.3;
-                if (game.status.oxygenHours <= 0) ending("asphyxiation");
-                else {
-                    game.addOutput(
-                        "*You sit back and stare at the blinking airlock status light…* \n" + 
-                        "34 minutes pass.\nOxygen depletes: 3hr02m → 2hr59m.\n", "system");
-                }
-            }
-            
-            // Power comms
-            else if ((words.includes("power") || words.includes("use")) && 
-                    words[1]?.includes("battery") &&
-                    game.inventory.includes("battery_9v") ) {
-                
-                if (!game.cluesFound.includes("loose_wires")) {
-                    game.addOutput(
-                        "*You plug in the battery… but it powers only the flashlight and diagnostics.*\n" +
-                        "No signal goes anywhere — Earth wouldn't know you exist.", "warn");
-                } else if (game.inventory.includes("flashlight") || words.length>2 && 
-                    ["connect", "splice"].some(w => words.some(wd => wd.includes(w)))) {
-                    game.addOutput(
-                        "You bypass the junction. Wires spark but don’t smoke.\n" +
-                        "The tablet hums awake with a warning: \n[AC POWER DERATING 96%]\n", "warn");
-                    game.status.oxygenMins -= 8; // high drain
-                }
-                else {
-                    game.addOutput(
-                        "*Battery connected to console.*\nLEDs shift from red to amber.\n", "system");
-                    if (!game.objectives.powerUpTablet) {
-                        game.objectives.powerUpTablet = true;
-                        game.cluesFound.push("console_active");
-                    }
-                }
-            }
-
-            // Secret ending for cleverness — use all clues together  
-            else if (["transmit","send"].includes(words[0]) && game.objectives.commsAvailable && words.includes("earth")) {
-                if (!game.inventory.includes("battery_9v") || !game.cluesFound.includes("loose_wires")) {
-                    ending("silence");
-                } else {
-                    ending("reestablished", true); // victory
-                }
-            }
-
-            else if (cmd.length > 25 && !words.some(w => ["help","look","i"].includes(w))) {
-                game.addOutput(
-                    "Unknown command: “"+cmd+"”. Type ‘help’ for assistance.\n", "warn");
-            }
-
-            break;
-
-        // Future rooms would be handled here
-    }
-
-    // Update oxygen status in real-time based on time passing and player choices  
-    if (!game.gameOver) {
-        const newO2 = (game.status.oxygenHours * 60 + game.status.oxygenMins) - (cmd.length/50);
-        if (newO2 <= 0) {
-            game.status.oxygenHours = 0;
-            game.status.oxygenMins = 0;
-            ending("asphyxiation");
-        }
-        
-        const oHr = Math.floor(newO2 / 60);
-        const oMin = Math.round(newO2 % 60);
-
-        if (oMin === 60) {
-            oHr++; 
-            oMin = 0;
-        }
-        
-        // Only update display if things change significantly
-        if ((game.status.oxygenHours !== oHr || game.status.oxygenMins !== oMin) &&
-            !(Math.abs(game.status.oxygenMins - oMin)<2 && Math.abs(game.status.oxygenHours-oHr)<0.01)) {
-            
-            const barEl = document.getElementById('status-bar');
-            const isDanger = newO2 < 90;
-            
-            game.status.oxygenHours = oHr; 
-            game.status.oxygenMins = oMin;
-            if (isDanger) {
-                barEl.textContent = `STATUS: [CRITICAL] • OXYGEN: ~${oHr}h ${oMin}m`;
-                barEl.classList.add('warning');
-            }
-            else {
-                barEl.innerHTML = `<span style="color:#e76;">STATUS:</span> [AIRMIX 92%] <span style="margin-left:0.5em">OXYGEN:</span> ~${oHr}h ${oMin}m <span style="margin-left:0.5em; color: ${oHr<1 ? '#f00':'#a6e'};">• SECURE</span>`;
+            else { 
+                bootDiv.innerText += `${w} `;
+                await new Promise(r => setTimeout(r, Math.random()*60)); // varies typing speed for realism
             }
         }
+        if (currentLine) { bootDiv.innerText += currentLine; }
     }
-}
 
-
-function ending(type, success=false) {
-    game.gameOver = true;
-    const msg = {
-        "asphyxiation": 
-            "*— the red lights stop blinking.*\n" +
-            "\n" + 
-            "[AIR LOCK A-7 • TERMINATED]\n" + 
-            "CO₂: 6.2% — Loss of consciousness: 28 sec\n" +
-            "\n" +
-            "*Final breath: a quiet hiss in your ears, like wind in lunar craters.*\n" + 
-            "MISSION LOG #702 — LAST ENTRY",
-            
-        "silence": 
-            "[COMMS FAILURE]\n" + 
-            "No carrier detected.\n" +
-            "Your signal was lost before Earth even knew you were sending it.\n\n" + 
-            "*…The bulkhead doesn’t open for another 48 hours.*",
-        
-        "reestablished":  
-            "[TRANSMISSION SUCCESS]\n\n" + 
-            "*Click —* then silence… then: \n“— this is Apollo-7 Relay, go ahead Lunar Station Echo. Copy?*”\n" +
-            "\nYou answer immediately: \n" +
-            "> “Airlock A-7 is intact. Single occupant. Need extraction — and help.”\n" + 
-            "*They reply within seconds: "I have your beacon in sight. Hold fast, friend."*\n" + 
-            "\n\n[MISSION LOG #702 — SAVED]\n" +
-            "The door hisses open an hour later — and a face you haven’t seen in weeks stares in:\n" + 
-            "Commander Vega, breathing hard: ‘Goddamnit. I told them to wait!’\n"
-    }[type];
-
-    game.addOutput("\n*** "+type.toUpperCase().split('_').join(' ')+" ***","warn");
+    const lines = [
+        "  [BOOT SEQUENCE INITIATED...]", 
+        "> Core OS... PASS",
+        "> Hydroponics Control… OFFLINE", 
+        "> Airlock Seals… ENGINED", 
+        "> STRUCTURAL WARNING — Sector A-7 Isolation",
+        "> EMERGENCY OVERLAY — E-L7 Activated"
+    ];
+    
+    lines.forEach(line => setTimeout(() => typeLine(line), 120));
     
     setTimeout(() => {
-        msg.split("\n").forEach(line => {
-            game.addOutput(line, "normal");
-        });
-        setTimeout(() => {
-            const reboot = () => {
-                game.addOutput("[SYSTEM REBOOT INITIATED]\n\n");
-                window.location.reload();
-            };
-            
-            setTimeout(reboot, 4500); // After 4.5s of reading, reset
-        }, 3000);
-    }, 500);
+        bootDiv.innerText = bootText + "\n[BOOT COMPLETE]\n\n"; // Replace full boot log
+        
+        render();
+        addHint("look [object]", "Type 'look' followed by an object name to get details (e.g. 'look console')", "#cde");
+    }, 3800); 
 }
 
-// Initialize input handler with keyboard sounds & typing realism
-document.getElementById("input-area").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const cmd = document.getElementById('input').value;
+function parseCmd(input) {
+    if (!input.trim()) return;
     
-    // Sound feedback: play click for each printable char in command (not enter/space yet)
-    Array.from(cmd).forEach(c => playKeySound(c));
-    game.handleInput(cmd);
+    // Sanitize for storage & readability  
+    game.history.push(`user@luna-airlockA7:~$ ${input}`);
+    const words = input.toLowerCase().trim().split(/\s+/);
+
+    switch(game.room) {
+
+        case "airlock":
+
+            // --- LOOK ---
+            if (words[0] === "look") {
+                let target = words.slice(1).join(' ');
+
+                // look room, general, everything
+                if (["", "room","every"].includes(target)) {
+                    game.history.push("[Airlock A-7 — Main Chamber]\n • Bulkhead: sealed (ACCESS DENIED)\n" +
+                                      " • Comms Console: standby LEDs flicker red\n" + 
+                                      " • Emergency Locker: open (magnets disengaged?)\n" +
+                                      " • Tablet Dock: screen dark (battery missing)", "sys");
+                    game.history.push("Tip: Try looking at the *console*, *locker*, or *tablet*."); addHint('look console','Type "look console" to inspect communications equipment','#4caf50');
+                }
+
+                // look console
+                else if (target.includes("con") || target.includes("transmit")) {
+                    game.history.push("[COMMS CONSOLE]\nStatus: Transceiver offline. LED pattern says:\n- FREQ UNLOCKED → 357 MHz\n- T/R MODULE: HOT", "sys");
+                    game.clues.push('freq_357', 'needs_wiring');
+                    addHint('transmit','You can't use the console without fixing power first','warn'); 
+                }
+
+                // look locker / lock
+                else if (target.includes("lock") || target.includes("emerg")) {
+                    game.history.push("Inside:  • CO2 Scrubber Kit (single use)  • Battery pack (9V, spare)\n" +
+                                     "• Flashlight (heavy-duty), marked ‘EMERG-USE ONLY’.", "sys");
+                    
+                    if (!game.inventory.includes('filter')) game.inventory.push('filter', 'batt_9v');
+                    addHint('use battery','After taking it from the locker, you must use it: type "use battery console"'); 
+                }
+
+                // look tablet / screen
+                else if (target.includes("tab") || target.includes("dock")) {
+                    game.history.push("[MAINTENANCE TABLET]\nDock indicator shows NO POWER.\nThe battery seems to be missing — possibly during the E-L7 event.", "sys");
+                    addHint('battery','It was inside the locker! Use it: "use batt_9v on tablet"', 'warn'); 
+                }
+                
+                // look viewport
+                else if (target.includes("view")) {
+                    game.history.push("[Viewport] You see: Pitch darkness outside, and—flickering at Junction 5!\nA thin wire spool glints under broken conduit.");
+                    game.clues.push('j5_flicker');
+                }
+                
+                else game.history.push(`What? Look where? Try: 'look [console|tablet|locker|viewport]'.`);
+            }
+
+            
+            // --- INVENTORY ---
+            if (words[0].includes("i")) { // inv or inventory
+                game.history.push("[Inventory]");
+                if (game.inventory.length === 0) game.history.push("* Empty *");
+                else game.inventory.forEach(i => game.history.push(` • ${i.replace("_"," ")}`));
+            }
+
+            // --- HELP ---
+            if (words[0].includes("help") || words.length === 1 && words.includes('?')) {
+                game.history.push("\n** COMMAND REFERENCE **");
+                [
+                    ["look [obj]", "Examine environment"], 
+                    ["inv", "Check items you carry"], 
+                    ["open locker","Retrieve supplies (if available)"], 
+                    ["use [item] [target]","Try: use batt_9v console (to fix power)","use flashlight corridor"]
+                ].forEach(([cmd,desc]) => {
+                    game.history.push(`  > ${cmd.padEnd(18)} - ${desc}`);
+                });
+            }
+
+            // --- USE (THE REAL GAMEPLAY) ---
+            
+            // 1. use battery
+            if (words[0] === "use" && words[1]?.includes("batt")) {
+                if (!game.inventory.includes("batt_9v")) { game.history.push("*Battery pack? You haven't taken one yet.* Try: open locker"); }
+                else {
+                    const target = words.slice(2).join(' ');
+                    
+                    if (target.includes("tab") || target.includes("dock")) {
+                        game.inventory = game.inventory.filter(i => i !== "batt_9v");
+                        game.history.push("*You insert the spare 9V battery…*\nThe tablet hums to life. \n> Screen says: “BASE GRID INTEGRITY COMPROMISED”", "sys");
+                        addHint('diagnostic', 'If you have a terminal, try: use diagnostic.txt console');
+                    }
+
+                    if (target.includes("con")) {
+                        game.history.push("*You plug battery directly into comms backup…*\nLEDs flicker but still red.\nThe unit is starved — the real problem’s in Junction 5.", "warn");
+                        addHint('wiring', 'Check the corridor first with flashlight, then fix wiring at J5');
+                    }
+                }
+            }
+
+            // use flashlight corridor (hint hint: see loose wires)
+            if (words[0] === "use" && words[1]?.includes("flash")) {
+                const target = words.slice(2).join(' ');
+                if (target.includes("corrid") || target.includes("outside") || target.includes("hallway")) {
+                    game.history.push("*You turn on the flashlight…* A pale white beam sweeps down corridor B.", "normal");
+                    if (!game.clues.includes("loose_wires_j5")) {
+                        setTimeout(() => {
+                            game.history.push("A spool of red shielding cable hangs from broken conduit.\nLabels read: 'BACKUP / J5 – 357 MHz'.", "sys");
+                            game.clues.push('loose_wires_j5');
+                            addHint('splice', 'You can fix the signal here if you have a splice tool—or maybe the console knows?','warn'); 
+                        }, 200);
+                    }
+                } else game.history.push("*The beam just shows walls.* Try pointing it down corridor B.");
+            }
+
+            
+            // --- OPEN (Locker) ---
+            if (words[0].includes("open")) {
+                const obj = words[1];
+                
+                if (obj.includes("lock")) { 
+                    if (!game.inventory.includes("filter")) { game.inventory.push("flashlight"); }
+                    
+                    if (!game.clues.includes("items_in_locker") ) {
+                        setTimeout(() => game.history.push("The magnetic release disengages with a hiss — you’re in.","sys"), 300);
+                    } else {
+                        setTimeout(() => game.history.push("Locker empty now, but the air smells faintly of ozone.","sys"),250); 
+                    }
+                    addHint('battery', 'Check inside for spares.'); // teach player
+                } 
+                
+                else if (obj.includes("door")) { game.history.push("*You push the emergency release —*\nNothing. The door’s sealed tighter than a vacuum flange.","warn"); }
+            }
+
+            // --- TRANSMIT (FINAL PROGRESSION) ---
+            
+            // You need:
+            // [ ] battery on console → done via "use batt con"  
+            // [ ] J5 wires fixed (needs flashlight first!)  
+            if ((words[0] === "transmit") || (input.toLowerCase().includes("send")) ) {
+                
+                if (!game.inventory.includes("batt_9v")) game.history.push("Wait—you can't just send from a dead unit!");
+                else if (!game.clues.includes('loose_wires_j5')) game.history.push("*Transmitter LEDs glow — then flicker red.*\nThe antenna cable is broken.", "warn");
+                
+                else {
+                    setTimeout(() => { 
+                        game.history.push("\n*** TRANSMISSION SEQUENCE ***", 'system');
+                        
+                        let seq = [ 
+                            "[SET: FREQ 357.2MHz… OK]", 
+                            "[VERIFY WIRE INTEGRITY… FAILED]"]; // Wait—J5 needs repair!
+
+                        if (game.clues.includes("j5_repaired")) {
+                            game.history.push(
+                                "*Signal spikes. Antenna confirms lock.\n\n[TO: APOLLO 7 RELAY]\nFrom: A-7 AIRLOCK.\nMessage: Surviving solo — oxygen ~1h30m left—need extraction.",
+                                "warn");
+                            
+                            game.oxygenMins -= 4; // high power transmission uses extra air
+
+                            setTimeout(() => ending('rescue'), 1800);
+                        } else {
+                            seq.push(
+                                "> Reconnecting splice at Junction 5…\n",
+                                "*You find the exposed spool.* Do you fix it now?");
+                            
+                            addHint('splice', 'Use wire splice on junction — but watch out: one wrong move triggers fault');
+                        }
+
+                        game.history = game.history.concat(seq);
+                    }, 600); 
+                }
+            } else if (words.length === 1 && words[0].startsWith("sp")) { // typo / partial
+                 game.history.push("*Signal degraded. Try 'splice junction' or inspect wire more closely.");
+             }
+
+            
+            break;
+        default: game.history.push("> Error — Unknown command syntax or room state."); 
+    }
+
+    // Drain oxygen over time
+    game.oxygenMins -= input.trim().length > 0 ? (input.trim().length / 6.3) : 0; 
     
-    document.getElementById('input').value = "";
-});
+    // Check for end condition (sudden asphyxiation or success)
+    if (game.oxygenMins <= 0 && !endingCheck('asphyx')) { 
+        game.history.push("\n\n*You gasp once — twice.*\nThe oxygen level is critical. Black spots dance at the edge of vision.\nNo more commands are possible.", "warn"); 
+        endingCheck("asphyx"); return; 
+    }
+    
+    if (game.oxygenMins < 60) { statusEl.classList.add('crt-warning'); } // subtle alert
+    
+    render();
+}
 
-// Also give feedback on SPACE or BACKSPACE
-const inputEl = document.getElementById("input");
-[inputEl, document].forEach(node =>
-  ["keydown","keyup"].forEach(evtType => 
-   node.addEventListener(evtType, function(e) {
-     // Only real clicks — not arrows/control
-     const charCodes = {9:'tab',13:'enter',32:' '}; // key codes
-     if (charCodes[e.keyCode] || (e.key.length === 1 && e.key !== "Backspace")) {
-         if (!e.ctrlKey && !e.metaKey && !e.altKey)
-             playKeySound(e.key);
-     }
-   })));
+function endingCheck(what) {
+    if (game.gameOver) return true;
+    
+    const history = game.history.filter(s => !s.includes("sys")).join("");
+    if (what === "asphyx") { 
+        game.gameOver = true; setTimeout(() => window.location.reload(), 8000);
+    } else if (what === 'rescue') {
+        setTimeout(() => {
+            endingCheck('win');
+        },2500); // short delay for effect
+    }
+    
+    return false;
+}
 
-// Boot animation and initial text
-bootUp();
-game.addOutput("\n[SYSTEM READY]"); 
-setTimeout(() => {
-    game.addOutput("> [WARNING] Airlock integrity compromised in sector A7.\n");
-    game.addOutput("> You are safe for now—but how long before the air runs thin?");
-}, 600);
+function ending(type) {
+    const box = document.createElement('div'); 
+    box.style.background="#102"; box.style.borderRadius="4px"; box.style.padding="8px"; 
+    box.innerText=type==='asphyx'?"ASPHYXIATION\n— the screen goes dark. No signal, no rescue.\nYou leave a note: I was alone.":
+                  "SIGNAL LOST?\nTransmission sent—but not in time. Oxygen reached 0%.";
+
+    if (type === 'rescue') { // Success
+        setTimeout(() => {
+            alert("MISSION STATUS: REESTABLISHED");
+            location.reload(); // clean slate for next try 
+        },5500); 
+    } else { game.history.push("\n\nGAME OVER.\nReload this file to start again.",'warn'); render();}
+    
+    game.gameOver = true;
+}
+
+
+// === HOVER HINT SYSTEM ===
+
+const hintBox = document.getElementById('hoverHintBox');
+let lastHovered;
+
+function addHint(trigger, text, color="#fff") {
+    // Add data attribute for tooltip (visible on hover)
+    const container = document.createElement("span");
+    container.innerHTML = `[ ${trigger} ]`; 
+    container.className = "hint-trigger"; 
+    container.title=text;
+    container.setAttribute("data-hint-text",text);
+    
+    terminal.appendChild(container);
+}
+
+function attachHintsToWords(text) {
+    if (!text) return text;
+    
+    const knownCommands = {
+        'look':'Look around — try `look [object]` like `look locker`', 
+        'use':'Use item — syntax: use <item> on <target>',
+        'inv':'Inventory list — quick way to see what you have.',
+        'help':'List all commands with hints.',
+        'transmit':'Send signal to Earth (requires power and repaired wiring)'
+    };
+    
+    let out = text;
+    Object.keys(knownCommands).forEach(k => {
+        const regex = new RegExp(`\\b${k}\\b`, 'g');
+        if (regex.test(text)) { 
+            // Replace each word with span + tooltip data-attr
+            const replaceWord = word => {
+                const wrapped = `<span class="word-hint-container">${word}
+                    <div class="hint-bubble" style="left:${Math.random()*-5}px">${knownCommands[k]}</div>
+                 </span>`;
+                
+                out = text.replace(new RegExp(word,'g'), () => { 
+                    if (lastHovered !== word) {
+                        // Avoid duplicate replacement in one run
+                        return wrapped; 
+                    } else {
+                        lastHovered = null;
+                        return word; // leave untouched once hovered to reduce noise
+                    }
+                });
+                
+            };
+            replaceWord(k);
+        }
+    });
+    
+    return out; 
+}
+
+
+// === MOUSE EVENTS (desktop + mobile) ===
+function setupHints() {
+    document.addEventListener('mouseover', e => {
+        const span = e.target.closest('.word-hint-container');
+        if (span) { 
+            const hintText = span.querySelector(".hint-bubble")?.innerText || span.title;
+            
+            // Set the hint box location near mouse (offset to top right of screen)
+            const rect = document.body.getBoundingClientRect(); // fallback
+            hintBox.style.position = "fixed"; // Use fixed position for robustness
+
+            const offsetX = 45; // offset slightly so not covered by mouse
+            
+            hintBox.style.left = `${window.innerWidth/2 + 18}px`; 
+            hintBox.style.top = `${Math.max(window.innerHeight-200,rect.height)}px`;
+
+            hintBox.hidden=false;
+            
+            // Update text
+            const bubble = document.getElementById("hintText"); if (bubble) { 
+                bubble.innerText= hintText; bubble.style.color = span.getAttribute("data-hint-color") || "#8ab9ff";
+                hintBox.setAttribute("title",""); // Clear default tooltip so we control it
+                
+                lastHovered = null; // reset 
+            }
+        } else if (!hintBox.hidden) { 
+            hintBox.hidden = true;
+            lastHovered=null;
+        }
+    });
+
+    // mobile tap support
+    document.addEventListener('click', e => {
+        const span = e.target.closest('.word-hint-container');
+        if (span && span.querySelector('.hint-bubble')) { 
+             span.querySelector(".hint-bubble").style.background = "rgba(120,56,87,0.95)";
+        }
+    });
+
+    document.getElementById('terminal').addEventListener('mouseout', () => {
+        hintBox.hidden=true;
+    });
+}
+
+
+// === GAME LOOP STARTUP ===
+function mainLoop() {
+
+    setupHints();
+
+    bootGame(); // kicks off text & timer
+
+    // Input event (keyboard sound still possible via simple click, but disabled by default)
+    const inputEl = document.getElementById('input');
+    inputEl.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" && !game.gameOver) { 
+            parseCmd(this.value);
+            this.value = '';
+            
+            // Small delay before focus returns
+            setTimeout(() => this.focus(), 35); 
+
+            // Scroll down on input for better UX
+            const div = document.getElementById('history'); 
+            if (div) div.scrollTop = div.scrollHeight; 
+            
+        } else if (e.key.length === 1 && !game.gameOver && Math.random() > .80) { 
+            playClickSound(); // Optional — keep it quiet, just one beep
+        }
+    });
+}
+
+function playClickSound() {
+    try { 
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!audioCtx.state) audioCtx.resume();
+        const osc = audioCtx.createOscillator(), gainNode= audioCtx.createGain();
+
+        // mechanical sound model
+        const tone = 1800, dur=75/1000; 
+        gainNode.gain.setValueAtTime(0.06, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        osc.type="sawtooth"; osc.frequency.value = tone;
+        osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+
+        osc.start(); osc.stop(audioCtx.currentTime+dur);
+        
+    } catch(err) {/* ignore if browser blocks audio */ }
+}
+
+
+// Init!
+mainLoop();
+
+// Auto-add hint on start  
+setTimeout(() => { 
+    terminal.innerHTML = 
+    "<span class='sys-msg' id='intro'>\n> CONNECTION ESTABLISHED\n" + 
+    "WARNING: You are the only survivor of Event L7.\nAirlock A-7 sealed for your protection." +
+    "</span><br><div class='msg' id='hintStart'></div>\n";
+
+},160);
+</script>
+
+<!-- Custom hint style injection (override CSS to avoid conflicts) -->
+<style id="hint-style"></style>
+<script> document.getElementById('hint-style').textContent = 
+`#hoverHintBox { font-family:"Courier New"; z-index:9999 !important; transform-origin:center bottom !important;}`
 </script>
 </body>
 </html>
