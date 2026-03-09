@@ -33,7 +33,6 @@
         @keyframes blinker { 50% { opacity:0; } }
     </style>
 </head>
-
 <body>
 <div id="chassis">
     <div id="screen">
@@ -67,12 +66,60 @@ const mO2 = document.getElementById('m-o2'), mPwr = document.getElementById('m-p
 
 let state = 'OFF';
 let isTyping = false;
-let audioCtx;
 let hasLedger = false;
 let terminalTimeout;
 let typeInterval;
+let seqTimeout; // Prevents async rendering overlaps
 let metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
 let currentNodeId = 'WAKE';
+
+// Audio Globals
+let audioCtx;
+let clickBuffer = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const bufferSize = audioCtx.sampleRate * 0.05; 
+        clickBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = clickBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1; 
+        }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playAudioTone(type) {
+    if (!audioCtx || audioCtx.state === 'suspended') return;
+    const t = audioCtx.currentTime;
+    
+    if (type === 'on') {
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.type = 'square'; 
+        osc.frequency.setValueAtTime(80, t); 
+        osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
+        gain.gain.setValueAtTime(0.5, t); 
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+        osc.start(t); osc.stop(t + 0.15);
+    } else if (type === 'key' && clickBuffer) {
+        const noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = clickBuffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1000 + (Math.random() * 800); 
+        filter.Q.value = 1.2;
+
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.setValueAtTime(0.4, t);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+
+        noiseSource.connect(filter).connect(gainNode).connect(audioCtx.destination);
+        noiseSource.start(t);
+    }
+}
 
 const storyNodes = {
     'WAKE': {
@@ -144,12 +191,10 @@ const storyNodes = {
     'SERVER_CORE': {
         aiText: "[PMD_VOICE]: You do not have clearance for the logic core. The localized EMP shielding is active.",
         ledgerText: "[BLACK_BOX_LOG]: You can overload your suit's localized battery to generate a directional EMP. This will blind the PMD's optical sensors in the Hangar, but leaves you with zero life support power.",
-        prompt: "EMP REQUIRES 40% SUIT POWER. YOU HAVE " + metrics.pwr + "%.\n[1] INITIATE EMP OVERLOAD | [2] ABORT TO LIFE SUPPORT",
+        prompt: "EMP REQUIRES 40% SUIT POWER. YOU HAVE [PWR]%.\n[1] INITIATE EMP OVERLOAD | [2] ABORT TO LIFE SUPPORT",
         choices: { '1': 'EMP_CHECK', '2': 'LIFE_SUPPORT' }
     },
-    'EMP_CHECK': {
-        // Dynamic node handled in handleInput
-    },
+    'EMP_CHECK': {},
     'EMP_SUCCESS': {
         effect: () => { metrics.pwr -= 40; },
         actionText: "You reroute your suit's thermal reserves into the transmission coil. A silent, invisible shockwave rips through the server room. The glowing optical sensors on the ceiling shatter.",
@@ -162,9 +207,7 @@ const storyNodes = {
         prompt: "THE DISTANCE IS 100 METERS. YOU MUST SPRINT.\n[1] SPRINT TO SHUTTLE (-30 O2)",
         choices: { '1': 'SPRINT_CHECK' }
     },
-    'SPRINT_CHECK': {
-        // Dynamic node handled in handleInput
-    },
+    'SPRINT_CHECK': {},
     'HANGAR_BLIND': {
         actionText: "The hangar is dark. The PMD's sensors are shattered. You walk slowly, silently to the shuttle airlock. The machine never even knows you left.",
         prompt: "EXTRACTION SUCCESSFUL. YOU BEAT THE FLAWED LOGIC.",
@@ -204,31 +247,13 @@ function checkDeath() {
     if (metrics.o2 <= 0) return 'DEATH_O2';
     if (metrics.pwr <= 0) return 'DEATH_PWR';
     if (metrics.int <= 0) return 'DEATH_INT';
-    if (metrics.med < 0) { metrics.med = 0; return 'DEATH_INT'; } // Used stim didn't have
+    if (metrics.med < 0) { metrics.med = 0; return 'DEATH_INT'; }
     return null;
-}
-
-function playAudioTone(type) {
-    if (!audioCtx || audioCtx.state === 'suspended') return;
-    const t = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-    osc.connect(gain).connect(audioCtx.destination);
-    
-    if (type === 'on') {
-        osc.type='square'; osc.frequency.setValueAtTime(80,t); osc.frequency.exponentialRampToValueAtTime(10, t+0.15);
-        gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.15);
-        osc.start(t); osc.stop(t+0.15);
-    } else if (type === 'key') {
-        osc.type='triangle'; osc.frequency.setValueAtTime(600, t);
-        gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.02);
-        osc.start(t); osc.stop(t+0.02);
-    }
 }
 
 function printText(text, textClass, callback) {
     if (!text) { callback(); return; }
-    isTyping = true;
-    inputField.disabled = true;
+    
     const span = document.createElement('span');
     span.className = textClass;
     outputDiv.appendChild(span);
@@ -243,9 +268,6 @@ function printText(text, textClass, callback) {
         i++;
         if (i >= text.length) {
             clearInterval(typeInterval);
-            isTyping = false; 
-            inputField.disabled = false; 
-            inputField.focus();
             outputDiv.appendChild(document.createElement('br'));
             if (callback) callback();
         }
@@ -254,8 +276,14 @@ function printText(text, textClass, callback) {
 
 function renderSequence(node, sequences) {
     if (sequences.length === 0) {
+        // Unlock input ONLY when the entire sequence is complete
+        isTyping = false;
+        inputField.disabled = false;
+        inputField.focus();
+
         if (node.prompt) {
-            outputDiv.innerHTML += `<br><span class='system-warn'>${node.prompt}</span><br>`;
+            let finalPrompt = node.prompt.replace('[PWR]', metrics.pwr);
+            outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
         }
         outputDiv.scrollTop = outputDiv.scrollHeight;
         
@@ -271,9 +299,14 @@ function renderSequence(node, sequences) {
     }
 
     const current = sequences.shift();
+    
+    // Lock input during the printing of the current block
+    isTyping = true;
+    inputField.disabled = true;
+
     printText(current.text, current.cls, () => {
         if (state !== 'HALTED') {
-            setTimeout(() => renderSequence(node, sequences), 200);
+            seqTimeout = setTimeout(() => renderSequence(node, sequences), 200);
         }
     });
 }
@@ -310,11 +343,11 @@ function handleInput(rawCmd) {
     outputDiv.innerHTML += `<br><span style="color:#fff">> ${cmd}</span><br>`;
     inputField.value = '';
 
-    // Dynamic Logic Checks
     if (currentNodeId === 'SERVER_CORE' && cmd === '1') {
         if (metrics.pwr >= 40) renderNode('EMP_SUCCESS');
         else {
             outputDiv.innerHTML += "<span class='system-warn'>INSUFFICIENT POWER FOR EMP COIL.</span><br>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
         }
         return;
     }
@@ -323,8 +356,8 @@ function handleInput(rawCmd) {
             metrics.o2 -= 30;
             renderNode('ESCAPE_SUCCESS');
         } else {
-            metrics.o2 -= 30; // Will trigger death check
-            renderNode('SPRINT_CHECK'); // Dummy trigger to force metric calculation
+            metrics.o2 -= 30;
+            renderNode('SPRINT_CHECK'); 
         }
         return;
     }
@@ -361,13 +394,11 @@ powerButton.addEventListener('click', () => {
     isTyping = false;
     clearInterval(typeInterval);
     clearTimeout(terminalTimeout);
+    clearTimeout(seqTimeout); // Purge the async queue on hard reset
 
     powerButton.classList.add('active');
     
-    // Ensure AudioContext is initialized/resumed on user gesture
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    
+    initAudio();
     playAudioTone('on');
     document.getElementById('screen').classList.add('powered-on');
 
