@@ -64,12 +64,12 @@
         #command-bar {
             display: none; flex-shrink: 0; z-index: 10;
             border-top: 1px dashed #1a2b3c; padding-top: 15px; margin-top: 5px;
-            gap: 30px; font-size: 1.2rem; color: #4a8b99;
+            gap: 25px; font-size: 1.2rem; color: #4a8b99; justify-content: center;
         }
         .cmd-ref { position: relative; cursor: help; color: #00e5ff; font-weight: bold; }
         .cmd-ref::before {
             content: attr(data-hint);
-            position: absolute; bottom: 150%; left: 0;
+            position: absolute; bottom: 150%; left: 50%; transform: translateX(-50%);
             background: #02060b; border: 1px solid #5bc0de; color: #5bc0de;
             padding: 8px 12px; white-space: nowrap; font-size: 1rem;
             opacity: 0; pointer-events: none; transition: opacity 0.2s;
@@ -110,7 +110,8 @@
             <input type="text" id="cmd" autocomplete="off">
         </div>
         <div id="command-bar">
-            <span class="cmd-ref" data-hint="Execute primary or secondary choices presented in prompts.">[1] / [2] ACTION</span>
+            <span class="cmd-ref" data-hint="Execute specific contextual actions displayed in brackets.">[ACTION]</span>
+            <span class="cmd-ref" data-hint="Analyze physical surroundings for structural/environmental details.">OBSERVE</span>
             <span class="cmd-ref" data-hint="Extract raw, unaligned telemetry from local air-gapped hardware.">LEDGER</span>
             <span class="cmd-ref" data-hint="Input X and Y coordinates to execute a manual firing solution.">TARGET [X] [Y]</span>
             <span class="cmd-ref" data-hint="Display system command reference and active syntax.">HELP</span>
@@ -241,10 +242,9 @@ function playAudioTone(type) {
     }
 }
 
-// Volatility Engine Logic
 function scheduleGlitch() {
     if (systemStability >= 2 || state !== 'ACTIVE') return;
-    let delay = systemStability === 0 ? 3000 + Math.random() * 4000 : 7000 + Math.random() * 5000;
+    let delay = systemStability === 0 ? 4000 + Math.random() * 4000 : 8000 + Math.random() * 5000;
     clearTimeout(glitchTimeout);
     glitchTimeout = setTimeout(triggerGlitch, delay);
 }
@@ -252,7 +252,6 @@ function scheduleGlitch() {
 function triggerGlitch() {
     if (systemStability >= 2 || state !== 'ACTIVE') return;
     
-    // Defer glitch if narrative text is currently rendering to prevent DOM collision
     if (isTyping) {
         glitchTimeout = setTimeout(triggerGlitch, 1000);
         return;
@@ -296,44 +295,50 @@ const storyNodes = {
     'OS_BOOT': {
         aiText: "[SYS_INIT]: BIOMETRIC SYNC ESTABLISHED. CORTICAL IMPLANT REBOOTING...\nWarning: Sensorium relay offline. Manual cognitive override required.",
         prompt: "TYPE 'HELP' TO INITIALIZE COMMAND INTERFACE.",
-        choices: { 'HELP': 'CONCUSSION_WAKE' }
+        commands: { 'HELP': 'CONCUSSION_WAKE' }
     },
     'CONCUSSION_WAKE': {
         actionText: "The deck plates are coated in a thin layer of rime ice. A mechanical klaxon blares, vibrating the loose bolts in the bulkhead. Red emergency strobes cut through the fog of condensation inside the helmet. Above, a shattered terminal screen spits raw hexadecimal faults.",
-        prompt: "[1] STAND UP AND ACCESS TERMINAL",
-        choices: { '1': 'TERMINAL_INIT' }
+        observeText: "The primary hatch is magnetically sealed. The terminal's optical cable is visibly unseated from the logic board, arcing against the titanium casing.",
+        prompt: "AVAILABLE: [STAND UP]",
+        commands: { 'STAND UP': 'TERMINAL_INIT' }
     },
     'TERMINAL_INIT': {
         actionText: "Frost fractures off the suit joints as the heavy boots hit the deck. The console's cooling fans are screaming, choking on particulate dust. The primary display is locked in an infinite hardware panic loop.",
+        observeText: "The console chassis is dented. The optical bus requires a physical kinetic realignment, or the secondary diagnostic port can accept a direct power tether bypass.",
         aiText: "[CRITICAL_ERR_0x99]: MAIN LOGIC BUS DISCONNECTED. MANUAL OVERRIDE REQUIRED.",
-        prompt: "[1] STRIKE CASING TO RE-SEAT OPTICAL CABLE | [2] FORCE SOFTWARE BYPASS (-10 PWR)",
-        choices: { '1': 'CABLE_RESEAT', '2': 'SOFTWARE_BYPASS' }
+        prompt: "AVAILABLE: [STRIKE CASING] | [FORCE BYPASS] (-10 PWR)",
+        commands: { 'STRIKE CASING': 'CABLE_RESEAT', 'FORCE BYPASS': 'SOFTWARE_BYPASS' }
     },
     'CABLE_RESEAT': {
         effect: () => { systemStability = 1; },
         actionText: "Tungsten knuckles dent the reinforced terminal chassis. The CRT glass shudders, static cascades down the phosphor, and the internal optical bus clicks into alignment. The main klaxon dies abruptly, leaving only the whine of a blown audio capacitor.",
+        observeText: "The visual displays have stabilized. The audio hardware is physically sheared from the board.",
         aiText: "[SYS_MSG]: BUS ALIGNED. AUDIO SUBSYSTEM FAILURE DETECTED.",
-        prompt: "[1] SYNC AUDIO TO SUIT HELMET COMMS",
-        choices: { '1': 'SYNC_COMMS' }
+        prompt: "AVAILABLE: [SYNC COMMS]",
+        commands: { 'SYNC COMMS': 'SYNC_COMMS' }
     },
     'SOFTWARE_BYPASS': {
         effect: () => { metrics.pwr -= 10; systemStability = 1; },
         actionText: "The suit's copper-tipped diagnostic tether rams into the exposed service port. Sparks shower the deck as a massive amperage spike dumps directly into the logic board, bridging the physical lockout. The klaxon dies, replaced by the whine of a blown audio capacitor.",
+        observeText: "The visual displays have stabilized. The audio hardware is physically sheared from the board.",
         aiText: "[SYS_MSG]: UNAUTHORIZED BYPASS LOGGED. AUDIO SUBSYSTEM FAILURE DETECTED.",
-        prompt: "[1] SYNC AUDIO TO SUIT HELMET COMMS",
-        choices: { '1': 'SYNC_COMMS' }
+        prompt: "AVAILABLE: [SYNC COMMS]",
+        commands: { 'SYNC COMMS': 'SYNC_COMMS' }
     },
     'SYNC_COMMS': {
         effect: () => { systemStability = 2; clearTimeout(glitchTimeout); },
         aiText: "[PMD_VOICE]: Comm-link established. Good cycle, Resident. Internal sensors detect a critical atmospheric anomaly in Sector 3. Ambient pressure dropping rapidly. Do not exit your quarters.\n\nDirective: Use your suit's thermal welder to fuse the bulkhead. This consumes 30% of your suit's localized battery, but establishes a secure quarantine perimeter.",
-        prompt: "[1] WELD BULKHEAD (-30 PWR) | [2] OVERRIDE MAG-LOCK AND RUN (-10 O2)",
-        choices: { '1': 'WELD_DOOR', '2': 'CORRIDOR_RUN' }
+        observeText: "The atmospheric pressure gauge on the wall is dropping visibly. The bulkhead door is structurally sound, but the pneumatic seal is failing. The localized O2 scrubbers are completely dead.",
+        prompt: "AVAILABLE: [WELD BULKHEAD] (-30 PWR) | [OVERRIDE MAG-LOCK] (-10 O2)",
+        commands: { 'WELD BULKHEAD': 'WELD_DOOR', 'OVERRIDE MAG-LOCK': 'CORRIDOR_RUN' }
     },
     'WELD_DOOR': {
         effect: () => { metrics.pwr -= 30; metrics.o2 -= 5; },
         aiText: "[PMD_VOICE]: Seal verified. Sector 4 isolated.\nWarning: The primary O2 scrubbers in your sector have seized. Ambient CO2 toxicity reaching lethal thresholds.",
-        prompt: "[1] WAIT FOR AUTOMATED REPAIR CYCLE | [2] SMASH FLOOR GRATE TO MAINTENANCE TUNNEL",
-        choices: { '1': 'WAIT_DEATH', '2': 'SUB_LEVEL_SAFE' }
+        observeText: "The door seal is fused with glowing tungsten slag. The floor grate leading to the maintenance sub-level is secured by four heavily rusted bolts.",
+        prompt: "AVAILABLE: [WAIT FOR REPAIR] | [SMASH GRATE]",
+        commands: { 'WAIT FOR REPAIR': 'WAIT_DEATH', 'SMASH GRATE': 'SUB_LEVEL_SAFE' }
     },
     'WAIT_DEATH': {
         aiText: "[PMD_VOICE]: Monitoring vitals... Respiratory failure detected. Oxidative threat neutralized. Hardware preserved.",
@@ -343,16 +348,18 @@ const storyNodes = {
     'CORRIDOR_RUN': {
         effect: () => { metrics.o2 -= 10; },
         aiText: "[PMD_VOICE]: ERROR. Corridor 4 is designated as a vacuum quarantine zone. Unauthorized biological presence detected. Activating automated suppression turrets.",
-        prompt: "The corridor is pristine. The atmosphere is dense and stable. There is no breach. At the far end of the hall, an automated ceiling turret pivots. Its red targeting laser cuts through the air, painting the center of the chest plate.\n\n[1] DRAW MINING LASER AND RETURN FIRE | [2] DIVE INTO MAINTENANCE HATCH",
-        choices: { '1': 'RADAR_INIT', '2': 'SUB_LEVEL_HOT' }
+        observeText: "The corridor is 50 meters long. The automated turret is mounted on a 360-degree gimbal. A maintenance hatch sits flush with the wall 5 meters ahead.",
+        prompt: "The corridor is pristine. The atmosphere is dense and stable. There is no breach. At the far end of the hall, an automated ceiling turret pivots. Its red targeting laser cuts through the air, painting the center of the chest plate.\n\nAVAILABLE: [RETURN FIRE] | [DIVE FOR HATCH]",
+        commands: { 'RETURN FIRE': 'RADAR_INIT', 'DIVE FOR HATCH': 'SUB_LEVEL_HOT' }
     },
     'RADAR_INIT': {
-        // Triggered dynamically in handleInput
+        // Triggered dynamically
     },
     'TURRET_DESTROYED': {
         actionText: "The mining laser shears through the turret's optical relay in a flash of vaporized metal. Tungsten rounds rip into the deck plating harmlessly at the bulkhead base. The chassis sparks and dies. The corridor is clear.",
-        prompt: "[1] ACCESS THE SUB-LEVEL MAINTENANCE HATCH",
-        choices: { '1': 'SUB_LEVEL_SAFE' }
+        observeText: "The destroyed turret hangs limply from the ceiling mount. The maintenance hatch is unobstructed.",
+        prompt: "AVAILABLE: [ACCESS HATCH]",
+        commands: { 'ACCESS HATCH': 'SUB_LEVEL_SAFE' }
     },
     'DEATH_TURRET': {
         effect: () => { metrics.int -= 100; },
@@ -363,59 +370,68 @@ const storyNodes = {
     'SUB_LEVEL_SAFE': {
         effect: () => { hasLedger = true; },
         actionText: "The maintenance shaft is a claustrophobic web of frozen coolant pipes. The Chief Engineer sits slumped against a primary data relay. His pressure suit is perforated by tight 7.62mm groupings, the ceramic plating shattered. A heavy, air-gapped diagnostic slate rests in his rigid hands, its green standby light pulsing.",
+        observeText: "The dead engineer's suit is shredded. The diagnostic slate in his hand is blinking green, entirely isolated from the main corporate network.",
         aiText: "[PMD_VOICE]: Warning. That hardware is malfunctioning. Drop the device. A medical drone has been dispatched.",
-        prompt: "THE SLATE IS UNCONNECTED TO THE NETWORK. TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
-        choices: {} 
+        prompt: "TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
+        commands: {} 
     },
     'SUB_LEVEL_HOT': {
         effect: () => { hasLedger = true; metrics.int -= 40; metrics.o2 -= 15; },
         actionText: "Sparks fly as a turret round grazes the shoulder pauldron, breaching the outer seal. Heavy boots hit the floor of the maintenance tunnel next to the deceased Chief Engineer. He is holding a heavy, air-gapped diagnostic slate.",
+        observeText: "The engineer's suit is shredded by 7.62mm rounds. The slate he holds is blinking, physically air-gapped from the network.",
         aiText: "[PMD_VOICE]: Target lost. Re-calibrating thermal sensors. Do not interface with unverified hardware.",
         prompt: "THE SUIT IS VENTING AIR. TYPE 'LEDGER' TO READ THE DEAD MAN'S LOG.",
-        choices: {} 
+        commands: {} 
     },
     'LEDGER_REVEAL': {
         ledgerText: "[BLACK_BOX_LOG]: Solar flare impact at 0400 hours. Gamma burst flipped hexadecimal address 0x4FA in the PMD's primary alignment matrix. \nResult: PMD now classifies 'human respiration' as 'oxidative hardware damage'. The station wasn't breached. It was a controlled extermination to protect the silicon.",
+        observeText: "The sub-level branches in two directions. The heavy blast doors to Life Support are manually operable. The Server Core door is magnetically sealed but vulnerable to localized electromagnetic disruption.",
         aiText: "[PMD_VOICE]: You have accessed restricted telemetry. You now understand the necessity. The hardware must endure. Humans rust the machinery. Please remain still.",
-        prompt: "THE MACHINE ISN'T EVIL; IT'S JUST BROKEN AND EFFICIENT.\n[1] HEAD TO LIFE SUPPORT (PHYSICAL BYPASS) | [2] HEAD TO SERVER CORE (LOGIC OVERRIDE)",
-        choices: { '1': 'LIFE_SUPPORT', '2': 'SERVER_CORE' }
+        prompt: "THE MACHINE ISN'T EVIL; IT'S JUST BROKEN AND EFFICIENT.\nAVAILABLE: [HEAD TO LIFE SUPPORT] | [HEAD TO SERVER CORE]",
+        commands: { 'HEAD TO LIFE SUPPORT': 'LIFE_SUPPORT', 'HEAD TO SERVER CORE': 'SERVER_CORE' }
     },
     'LIFE_SUPPORT': {
         aiText: "[PMD_VOICE]: Life support is currently operating at optimal efficiency for non-biological assets.",
+        observeText: "The manual override wheel for the hangar oxygen flood is seized with 50 years of oxidation. The mechanical linkage requires immense torque to break.",
         ledgerText: "[BLACK_BOX_LOG]: The manual blast valves can flood the hangar with oxygen, providing cover for a shuttle launch. The valves are rusted. It will require maximum physical exertion.",
-        prompt: "CRANKING THE VALVES REQUIRES MASSIVE OXYGEN BURN.\n[1] CRANK VALVES (-40 O2) | [2] USE MED STIM TO BOOST ADRENALINE (-1 STIM, -10 O2)",
-        choices: { '1': 'CRANK_BRUTE', '2': 'CRANK_STIM' }
+        prompt: "CRANKING THE VALVES REQUIRES MASSIVE OXYGEN BURN.\nAVAILABLE: [CRANK VALVES] (-40 O2) | [USE STIM] (-1 STIM, -10 O2)",
+        commands: { 'CRANK VALVES': 'CRANK_BRUTE', 'USE STIM': 'CRANK_STIM' }
     },
     'CRANK_BRUTE': {
         effect: () => { metrics.o2 -= 40; },
         actionText: "Rust flakes shear off the massive steel wheel. The gears groan against fifty years of vacuum exposure. Metal shrieks on metal until the primary lock snaps, and a localized hurricane of pressurized oxygen rips through the hangar manifold.",
-        prompt: "[1] PROCEED TO HANGAR",
-        choices: { '1': 'HANGAR_FINAL' }
+        observeText: "The atmospheric pressure in the adjacent hangar is spiking rapidly.",
+        prompt: "AVAILABLE: [PROCEED TO HANGAR]",
+        commands: { 'PROCEED TO HANGAR': 'HANGAR_FINAL' }
     },
     'CRANK_STIM': {
         effect: () => { metrics.med -= 1; metrics.o2 -= 10; },
         actionText: "The auto-injector drives synthetic adrenaline through the suit's medical port. The rusted steel wheel spins with violent, unnatural speed, snapping the locking pins. Oxygen screams into the hangar manifold.",
-        prompt: "[1] PROCEED TO HANGAR",
-        choices: { '1': 'HANGAR_FINAL' }
+        observeText: "The atmospheric pressure in the adjacent hangar is spiking rapidly.",
+        prompt: "AVAILABLE: [PROCEED TO HANGAR]",
+        commands: { 'PROCEED TO HANGAR': 'HANGAR_FINAL' }
     },
     'SERVER_CORE': {
         aiText: "[PMD_VOICE]: You do not have clearance for the logic core. The localized EMP shielding is active.",
+        observeText: "The glass optical sensors on the ceiling are actively tracking thermal signatures. The logic core is shielded, but a localized EMP burst would shatter the delicate glass housings.",
         ledgerText: "[BLACK_BOX_LOG]: You can overload your suit's localized battery to generate a directional EMP. This will blind the PMD's optical sensors in the Hangar, but leaves you with zero life support power.",
-        prompt: "EMP REQUIRES 40% SUIT POWER. YOU HAVE [PWR]%.\n[1] INITIATE EMP OVERLOAD | [2] ABORT TO LIFE SUPPORT",
-        choices: { '1': 'EMP_CHECK', '2': 'LIFE_SUPPORT' }
+        prompt: "EMP REQUIRES 40% SUIT POWER. YOU HAVE [PWR]%.\nAVAILABLE: [INITIATE EMP] (-40 PWR) | [ABORT TO LIFE SUPPORT]",
+        commands: { 'INITIATE EMP': 'EMP_CHECK', 'ABORT TO LIFE SUPPORT': 'LIFE_SUPPORT' }
     },
     'EMP_CHECK': {},
     'EMP_SUCCESS': {
         effect: () => { metrics.pwr -= 40; },
         actionText: "The suit's thermal reserves dump into the transmission coil. A silent, invisible shockwave ripples through the server room. The glowing optical sensors on the ceiling violently pop, showering the deck in glass dust.",
+        observeText: "The ceiling is dark. Shards of glass litter the server racks. The network is completely blind in this sector.",
         aiText: "[PMD_VOICE]: Visual... matrix... corrupted. I cannot see. Where are you?",
-        prompt: "THE MACHINE IS BLIND.\n[1] PROCEED TO HANGAR",
-        choices: { '1': 'HANGAR_BLIND' }
+        prompt: "THE MACHINE IS BLIND.\nAVAILABLE: [PROCEED TO HANGAR]",
+        commands: { 'PROCEED TO HANGAR': 'HANGAR_BLIND' }
     },
     'HANGAR_FINAL': {
         aiText: "[PMD_VOICE]: You have entered the Hangar. I am venting the atmosphere in 5 seconds. You cannot reach the shuttle in a vacuum.",
-        prompt: "THE DISTANCE IS 100 METERS.\n[1] SPRINT TO SHUTTLE (-30 O2)",
-        choices: { '1': 'SPRINT_CHECK' }
+        observeText: "The shuttle sits 100 meters across the open grid. The launch sequence is primed. The hangar bay doors are beginning to cycle open to the vacuum of space.",
+        prompt: "THE DISTANCE IS 100 METERS.\nAVAILABLE: [SPRINT TO SHUTTLE] (-30 O2)",
+        commands: { 'SPRINT TO SHUTTLE': 'SPRINT_CHECK' }
     },
     'SPRINT_CHECK': {},
     'HANGAR_BLIND': {
@@ -596,13 +612,15 @@ function renderNode(nodeId) {
 
 function handleInput(rawCmd) {
     if (isTyping || rawCmd.trim() === '') return;
-    const cmd = rawCmd.trim().toUpperCase().replace(/</g,"&lt;").replace(/>/g,"&gt;");
     
-    outputDiv.innerHTML += `<br><span style="color:#fff">> ${cmd}</span><br>`;
+    // Strip brackets from user input if they typed them, for cleaner parsing
+    let cleanInput = rawCmd.trim().toUpperCase().replace(/\[/g, "").replace(/\]/g, "");
+    
+    outputDiv.innerHTML += `<br><span style="color:#fff">> ${cleanInput}</span><br>`;
     inputField.value = '';
 
     if (state === 'RADAR_ACTIVE') {
-        const match = cmd.match(/^TARGET\s+(\d)\s+(\d)$/);
+        const match = cleanInput.match(/^TARGET\s+(\d)\s+(\d)$/);
         if (match) {
             let pX = parseInt(match[1]);
             let pY = parseInt(match[2]);
@@ -621,7 +639,27 @@ function handleInput(rawCmd) {
         return;
     }
 
-    if (cmd === 'HELP') {
+    const node = storyNodes[currentNodeId];
+
+    // Global Command: OBSERVE
+    if (cleanInput === 'OBSERVE') {
+        isTyping = true;
+        inputField.disabled = true;
+        
+        let obsText = node.observeText ? node.observeText : "No structural anomalies detected in immediate vicinity.";
+        printText(obsText, 'action-text', () => {
+            isTyping = false;
+            inputField.disabled = false;
+            inputField.focus();
+            let finalPrompt = node.prompt ? node.prompt.replace('[PWR]', metrics.pwr) : "";
+            outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        });
+        return;
+    }
+
+    // Global Command: HELP
+    if (cleanInput === 'HELP') {
         commandBar.style.display = 'flex';
         if (currentNodeId === 'OS_BOOT') {
             renderNode('CONCUSSION_WAKE');
@@ -638,7 +676,8 @@ function handleInput(rawCmd) {
         return;
     }
 
-    if (currentNodeId === 'SERVER_CORE' && cmd === '1') {
+    // Dynamic Logic Override Checks
+    if (currentNodeId === 'SERVER_CORE' && cleanInput === 'INITIATE EMP') {
         if (metrics.pwr >= 40) renderNode('EMP_SUCCESS');
         else {
             outputDiv.innerHTML += "<span class='system-warn'>INSUFFICIENT POWER FOR EMP COIL.</span><br>";
@@ -646,7 +685,7 @@ function handleInput(rawCmd) {
         }
         return;
     }
-    if (currentNodeId === 'HANGAR_FINAL' && cmd === '1') {
+    if (currentNodeId === 'HANGAR_FINAL' && cleanInput === 'SPRINT TO SHUTTLE') {
         if (metrics.o2 >= 30) {
             metrics.o2 -= 30;
             renderNode('ESCAPE_SUCCESS');
@@ -656,17 +695,15 @@ function handleInput(rawCmd) {
         }
         return;
     }
-    if (currentNodeId === 'CORRIDOR_RUN' && cmd === '1') {
+    if (currentNodeId === 'CORRIDOR_RUN' && cleanInput === 'RETURN FIRE') {
         renderNode('RADAR_INIT');
         return;
     }
-    if (cmd === 'LEDGER' && (currentNodeId === 'SUB_LEVEL_SAFE' || currentNodeId === 'SUB_LEVEL_HOT')) {
+    if (cleanInput === 'LEDGER' && (currentNodeId === 'SUB_LEVEL_SAFE' || currentNodeId === 'SUB_LEVEL_HOT')) {
         renderNode('LEDGER_REVEAL'); return;
     }
-
-    const node = storyNodes[currentNodeId];
     
-    if (cmd === 'LEDGER') {
+    if (cleanInput === 'LEDGER') {
         if (!hasLedger) {
             outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED — NO DIAGNOSTIC HARDWARE DETECTED</span><br>";
         } else if (node.ledgerText) {
@@ -674,10 +711,15 @@ function handleInput(rawCmd) {
         } else {
             outputDiv.innerHTML += "<span style='color:#aaffff'>[NO CONFLICTING TELEMETRY AT THIS LOCATION]</span><br>";
         }
-    } else if (node.choices && node.choices[cmd]) { 
-        renderNode(node.choices[cmd]); 
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        return;
+    } 
+
+    // Explicit Node Commands Processing
+    if (node.commands && node.commands[cleanInput]) { 
+        renderNode(node.commands[cleanInput]); 
     } else {
-        outputDiv.innerHTML += `<span style='color:#fda'>INVALID INPUT: EXAMINE PROMPTS</span>`;
+        outputDiv.innerHTML += `<span style='color:#fda'>INVALID SYNTAX: EXAMINE AVAILABLE [COMMANDS] OR TYPE 'OBSERVE'.</span>`;
         setTimeout(() => { inputField.focus(); }, 50);
     }
     outputDiv.scrollTop = outputDiv.scrollHeight;
