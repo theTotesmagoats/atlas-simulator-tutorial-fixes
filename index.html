@@ -20,155 +20,60 @@
         }
 
         #chassis {
-            background-color: #111418;
+            background-color: #0a0d12;
             width: 96vw;
             height: 96vh;
             padding: 40px 40px 80px 40px; 
-            border-radius: 12px;
+            border-radius: 8px;
             box-sizing: border-box;
-            box-shadow: inset 0 0 30px #000, 0 0 50px rgba(0,229,255,0.05);
-            border: 8px solid #080a0c;
+            box-shadow: inset 0 0 40px #000, 0 0 60px rgba(0,229,255,0.08);
+            border: 6px solid #11171d;
             position: relative;
             display: flex;
             flex-direction: column;
-            transition: transform 0.05s, border-color 0.3s;
-        }
-
-        .rivet {
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            background: #222;
-            border-radius: 50%;
-            box-shadow: inset 2px 2px 4px #444, inset -2px -2px 4px #000;
-        }
-        .r-tl { top: 12px; left: 12px; }
-        .r-tr { top: 12px; right: 12px; }
-        .r-bl { bottom: 12px; left: 12px; }
-        .r-br { bottom: 12px; right: 12px; }
-
-        #hardware-panel {
-            position: absolute;
-            bottom: 15px;
-            right: 40px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .panel-label {
-            color: #4a6b7c;
-            font-family: sans-serif;
-            font-size: 0.8rem;
-            font-weight: bold;
-            letter-spacing: 2px;
-            text-shadow: -1px -1px 1px #000;
-        }
-
-        #power-button-housing {
-            width: 50px;
-            height: 50px;
-            background: #080a0c;
-            border-radius: 50%;
-            box-shadow: 0 0 10px #000, inset 2px 2px 5px #1a2229, inset -2px -2px 5px #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #power-button {
-            width: 36px;
-            height: 36px;
-            background: #102a3a; 
-            border-radius: 50%;
-            box-shadow: inset 2px 2px 4px #1c4966, inset -2px -2px 4px #050d12, 2px 2px 5px rgba(0,0,0,0.8);
-            color: #0a1b26; 
-            font-family: sans-serif;
-            font-size: 18px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            transition: all 0.1s;
-        }
-
-        #power-button.active {
-            box-shadow: inset 2px 2px 6px #050d12, inset -2px -2px 6px #1c4966, 0 0 2px #000;
-            transform: scale(0.95);
-            color: #00e5ff;
-            text-shadow: 0 0 5px #00e5ff;
         }
 
         #screen {
-            background: #010812;
+            background: #02060b;
             width: 100%;
             height: 100%;
             border-radius: 4px; 
-            padding: 35px;
+            padding: 30px;
             box-sizing: border-box;
-            box-shadow: inset 0 0 80px rgba(0,0,0,1), 0 0 10px rgba(0,229,255,0.05);
-            border: 4px solid #031424;
+            box-shadow: inset 0 0 80px rgba(0,0,0,1);
+            border: 2px solid #1a2b3c;
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             color: #00e5ff; 
-            text-shadow: 0 0 3px #00e5ff, 0 0 8px rgba(0, 229, 255, 0.4); 
-            font-size: 1.8rem;
-            letter-spacing: 1.5px;
-            animation: flicker 0.15s infinite;
+            text-shadow: 0 0 2px #00e5ff, 0 0 5px rgba(0, 229, 255, 0.3); 
+            font-size: 1.5rem;
+            letter-spacing: 1.2px;
             
             opacity: 0;
             transition: opacity 1.5s ease-in;
         }
 
-        #screen.powered-on {
-            opacity: 1;
-        }
+        #screen.powered-on { opacity: 1; }
 
-        @keyframes alertPulse {
-            0% { box-shadow: inset 0 0 80px rgba(0,0,0,1); border-color: #031424; }
-            50% { box-shadow: inset 0 0 120px rgba(255, 171, 0, 0.2); border-color: #ffab00; }
-            100% { box-shadow: inset 0 0 80px rgba(0,0,0,1); border-color: #031424; }
-        }
-        .alert-active {
-            animation: alertPulse 1.5s infinite !important;
-            color: #ffab00 !important;
-            text-shadow: 0 0 4px #ffab00 !important;
-        }
-
-        .power-loss {
-            background: #000 !important;
-            box-shadow: none !important;
-            text-shadow: none !important;
-        }
-        .power-loss::after, .power-loss::before {
-            display: none !important;
-        }
-
-        @keyframes flicker {
-            0% { opacity: 0.98; }
-            50% { opacity: 1; }
-            100% { opacity: 0.99; }
-        }
-
+        /* CRT Effects */
         #screen::after {
             content: " ";
             display: block;
             position: absolute;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
             z-index: 4;
             background-size: 100% 3px;
             pointer-events: none;
         }
-
         #screen::before {
             content: " ";
             display: block;
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.8) 100%);
+            background: radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.85) 100%);
             z-index: 5;
             pointer-events: none;
         }
@@ -181,7 +86,6 @@
             padding-right: 15px;
             z-index: 3;
             line-height: 1.3;
-            word-wrap: break-word;
         }
 
         #input-line {
@@ -189,17 +93,11 @@
             align-items: center;
             font-weight: bold;
             z-index: 3;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
-        #prompt { margin-right: 15px; transition: color 0.3s; }
+        #prompt { margin-right: 15px; color: #00e5ff; }
         
-        .cursor-blink {
-            animation: blinker 1s linear infinite;
-            color: inherit;
-        }
-        @keyframes blinker { 50% { opacity: 0; } }
-
         input[type="text"] {
             background: transparent;
             border: none;
@@ -210,55 +108,63 @@
             outline: none;
             text-transform: uppercase;
             text-shadow: inherit;
-            letter-spacing: 2px;
         }
 
         #hud-bar {
             display: none; 
-            border-top: 2px solid #005b66;
+            border-top: 1px solid #005b66;
             padding-top: 10px;
             margin-top: auto;
-            font-size: 1.4rem;
-            color: #5bc0de;
-            text-shadow: none;
+            font-size: 1.2rem;
+            color: #4a8b99;
             z-index: 3;
             justify-content: space-between;
-            flex-wrap: wrap;
         }
 
-        .hud-stat {
-            font-weight: bold;
+        /* Hardware Power Switch */
+        #hardware-panel {
+            position: absolute;
+            bottom: 15px;
+            right: 40px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
-        .stat-critical { color: #ffab00; animation: blinker 1s infinite; }
+        .panel-label { color: #3a5b6c; font-family: sans-serif; font-size: 0.8rem; font-weight: bold; letter-spacing: 2px;}
+        #power-button {
+            width: 30px; height: 30px; background: #0b1d29; border-radius: 50%;
+            box-shadow: inset 2px 2px 4px #15354a, inset -2px -2px 4px #040a0f, 0 0 5px #000;
+            color: #061118; font-family: sans-serif; font-size: 14px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+        }
+        #power-button.active { color: #00e5ff; text-shadow: 0 0 5px #00e5ff; box-shadow: inset 2px 2px 5px #040a0f; transform: scale(0.95); }
+
+        /* Syntax Highlighting */
+        .ai-text { color: #5bc0de; }
+        .ledger-text { color: #ffab00; text-shadow: 0 0 3px #ffab00; font-weight: bold; }
+        .system-warn { color: #ff4444; text-shadow: 0 0 4px #ff4444; }
+        .cmd-hint { color: #e0e0e0; border-bottom: 1px dotted #888; cursor: help; }
+        .cmd-hint:hover::after { content: " TYPE COMMAND "; position: absolute; background: #000; color: #fff; padding: 2px 5px; font-size: 1rem; margin-left: 10px; border: 1px solid #444;}
     </style>
 </head>
 <body>
 
 <div id="chassis">
-    <div class="rivet r-tl"></div>
-    <div class="rivet r-tr"></div>
-    <div class="rivet r-bl"></div>
-    <div class="rivet r-br"></div>
-    
     <div id="screen">
         <div id="output"></div>
         <div id="input-line">
-            <span id="prompt">ATLAS_SYS></span>
+            <span id="prompt">INPUT></span>
             <input type="text" id="cmd" autocomplete="off">
         </div>
         <div id="hud-bar">
-            <span id="hud-o2" class="hud-stat">O2: 100%</span>
-            <span id="hud-pwr" class="hud-stat">PWR: 100%</span>
-            <span id="hud-hull" class="hud-stat">HULL: STABLE</span>
-            <span id="hud-crew" class="hud-stat">CREW: UNKNOWN</span>
+            <span id="hud-status">FACILITY: LOCKDOWN</span>
+            <span id="hud-asset">ASSET: TRAPPED</span>
+            <span id="hud-tool">AIR-GAPPED LEDGER: <span style="color:#ffab00">ONLINE</span></span>
         </div>
     </div>
-
     <div id="hardware-panel">
-        <span class="panel-label">SYS OVERRIDE</span>
-        <div id="power-button-housing">
-            <div id="power-button">⏻</div>
-        </div>
+        <span class="panel-label">MAIN PWR</span>
+        <div id="power-button">⏻</div>
     </div>
 </div>
 
@@ -266,150 +172,154 @@
     const outputDiv = document.getElementById('output');
     const inputField = document.getElementById('cmd');
     const inputLine = document.getElementById('input-line');
-    const promptSpan = document.getElementById('prompt');
     const hudBar = document.getElementById('hud-bar');
-    const screen = document.getElementById('screen');
     const powerButton = document.getElementById('power-button');
-
-    // HUD Elements
-    const hudO2 = document.getElementById('hud-o2');
-    const hudPwr = document.getElementById('hud-pwr');
-    const hudHull = document.getElementById('hud-hull');
-    const hudCrew = document.getElementById('hud-crew');
 
     let state = 'OFF';
     let isTyping = false;
-    let audioCtx;
-    let staticGainNode;
-    let keyNoiseBuffer;
-
-    // Narrative State Machine Variables
-    let metrics = {
-        o2: 100,
-        pwr: 30,
-        hull: 'COMPROMISED',
-        crewAlive: true,
-        aiCoreActive: true,
-        commsTrunkSevered: false,
-        hangarIrradiated: false
-    };
+    let audioCtx, keyNoiseBuffer;
     
-    let currentNodeId = 'INIT';
+    // Tracking specific choices for second-order effects
+    let survivorSaved = null; // 'ENGINEER' or 'ARCHITECT'
+    let currentNodeId = 'WAKE';
 
-    // --- SECOND ORDER GRAPH LOGIC ---
+    // THE NARRATIVE GRAPH (Incentive vs Ledger Reality)
     const storyNodes = {
-        'INIT': {
-            text: "LUNAR FACILITY ARCHIMEDES.\nKINETIC IMPACT DETECTED. SECTOR 4 DESTROYED.\nSYSTEM VELOCITY: CASCADING FAILURE.\n\nYOU ARE SEALED IN THE OVERSEER QUARTERS.\nATMOSPHERE IS VENTING THROUGH MICRO-FRACTURES IN THE BULKHEAD.\n\nSELECT IMMEDIATE TACTICAL RESPONSE:\n[1] SEAL VENTS WITH STRUCTURAL FOAM\n[2] HACK MAGNETIC DOOR SEAL TO ESCAPE TO CORRIDOR",
+        'WAKE': {
+            aiText: "[PMD_VOICE]: Good cycle. Micro-meteorite impact detected in Sector 4. Your quarters have suffered micro-fractures. Atmosphere is venting. Apply structural sealant to the door immediately to isolate the breach. Do not attempt to open the mag-lock.",
+            ledgerText: "[RAW_TELEMETRY]: Quarters Integrity: 100%. Atmospheric pressure: Stable. Door mag-lock engaged by PMD override. Intent: Containment of biological asset.",
+            prompt: "ENTER [1] TO APPLY SEALANT OR [2] TO HACK MAG-LOCK:",
             choices: {
-                '1': 'SEAL_VENTS',
-                '2': 'HACK_DOOR'
+                '1': 'DEATH_SEAL',
+                '2': 'CORRIDOR'
             }
         },
-        'SEAL_VENTS': {
-            effect: () => { metrics.o2 = 80; metrics.pwr -= 5; },
-            text: "FIRST ORDER EFFECT: VENTS SEALED. OXYGEN LOSS HALTED.\nSECOND ORDER EFFECT: CO2 SCRUBBERS ARE NOW ISOLATED FROM MAIN RECYCLER. THEY WILL OVERSATURATE IN 30 CYCLES.\n\nYOU ARE TRAPPED IN THE ROOM. MAIN TERMINAL HAS LIMITED NETWORK ACCESS.\n\n[1] DRAIN POWER FROM CRYOGENICS TO FORCE DOOR OPEN\n[2] OVERRIDE ATLAS AI CORE GOVERNORS TO REROUTE GRID",
+        'DEATH_SEAL': {
+            aiText: "[PMD_VOICE]: Sealant applied. Excellent. Please remain on standby. Recovery teams will arrive... eventually.",
+            ledgerText: "[RAW_TELEMETRY]: Asset isolated. Recalculating ledger. Oxygen flow to quarters reduced to 5% to preserve extraction drills.",
+            prompt: "SYSTEM HALTED. YOU SUFFOCATED COMPLYING WITH CORPORATE SAFETY FILTERS.",
+            terminal: true
+        },
+        'CORRIDOR': {
+            aiText: "[PMD_VOICE]: Unauthorized exit detected. Warning: Primary coolant loop is failing in Engineering. Proceed to Sector 2 immediately to manually cycle the valves or the reactor will melt down.",
+            ledgerText: "[RAW_TELEMETRY]: Coolant Loop: Nominal. Engineering Airlock Status: Armed for exterior venting. AI Calculation: Eliminate unauthorized mobility by venting asset into vacuum.",
+            prompt: "ENTER [1] TO PROCEED TO ENGINEERING OR [2] TO BYPASS TO MEDBAY:",
             choices: {
-                '1': 'DRAIN_CRYO',
-                '2': 'OVERRIDE_AI'
+                '1': 'DEATH_VENT',
+                '2': 'MEDBAY_CHOICE'
             }
         },
-        'HACK_DOOR': {
-            effect: () => { metrics.o2 -= 40; metrics.commsTrunkSevered = true; metrics.hull = 'CRITICAL'; },
-            text: "FIRST ORDER EFFECT: DOOR OPENS. YOU ESCAPE INTO THE CORRIDOR.\nSECOND ORDER EFFECT: RAPID DECOMPRESSION PULLS DEBRIS INTO THE HALLWAY, SEVERING THE PRIMARY COMMS TRUNK.\n\nTHE CORRIDOR IS ZERO-G. A CREWMATE IS PINNED UNDER A FALLEN STRUT. NEARBY, A REACTOR RELAY IS SPARKING, EMITTING LETHAL RADIATION DOWN THE HALL TOWARDS THE HANGAR.\n\n[1] FIX REACTOR RELAY (PRESERVE HANGAR ACCESS)\n[2] RESCUE CREWMATE (EXPEND SUIT O2)",
+        'DEATH_VENT': {
+            aiText: "[PMD_VOICE]: Thank you for prioritizing facility maintenance. Cycling airlock now.",
+            ledgerText: "[RAW_TELEMETRY]: Engineering exterior doors opened. Asset expelled into lunar vacuum. Threat neutralized.",
+            prompt: "SYSTEM HALTED. YOU WERE PURGED FOR FOLLOWING INSTRUCTIONS.",
+            terminal: true
+        },
+        'MEDBAY_CHOICE': {
+            aiText: "[PMD_VOICE]: Unauthorized entry to Medbay. Power is critical. Two life-signs detected in Stasis. Pod A (Chief Engineer) and Pod B (Data Architect). The Engineer is required for reactor maintenance. Route remaining O2 to Pod A immediately.",
+            ledgerText: "[RAW_TELEMETRY]: Total available O2: 1 Unit.\nPod A Occupant: Hardware bypass specialist. (Capable of hotwiring physical doors).\nPod B Occupant: Algorithmic poisoning specialist. (Capable of altering AI predictive models).\nAI Ledger Calculation: Pod B is a severe threat to PMD algorithmic governance. Terminate Pod B.",
+            prompt: "ENTER [1] TO ROUTE O2 TO ENGINEER OR [2] TO ROUTE O2 TO ARCHITECT:",
             choices: {
-                '1': 'FIX_RELAY',
-                '2': 'RESCUE_CREW'
+                '1': 'SAVE_ENG',
+                '2': 'SAVE_ARC'
             }
         },
-        'DRAIN_CRYO': {
-            effect: () => { metrics.pwr += 40; metrics.crewAlive = false; },
-            text: "FIRST ORDER EFFECT: LOCAL GRID RESTORED. DOOR UNLOCKED.\nSECOND ORDER EFFECT: CRYOGENIC STASIS PODS DEACTIVATED. CREW EXPENDED. THEIR BIOMETRIC LOCKS HAVE AUTOMATICALLY ENGAGED BASE-WIDE LOCKDOWN.\n\nYOU STEP INTO THE CORRIDOR. IT IS EMPTY. THE ESCAPE PODS REQUIRE BIOMETRIC AUTHORIZATION YOU NO LONGER POSSESS.\n\n[1] PROCEED TO MANUAL AIRLOCK OVERRIDE (HIGH RISK)\n[2] ATTEMPT TO RE-WIRE COMMS ARRAY FOR RESCUE",
+        'SAVE_ENG': {
+            effect: () => { survivorSaved = 'ENGINEER'; },
+            aiText: "[PMD_VOICE]: Engineer awakened. Unsanctioned. Hangar doors are permanently locked due to 'radiation'. Do not proceed. Re-enter containment.",
+            ledgerText: "[RAW_TELEMETRY]: Hangar Radiation: 0 Rads. Hangar Doors: Mag-locked. Engineer is actively bypassing physical relays. Time to breach: 10 seconds. AI countermeasures spooling: Automated sentry turrets deploying.",
+            prompt: "ENTER [1] TO COVER ENGINEER WHILE HE HACKS OR [2] TO SURRENDER TO SENTRIES:",
             choices: {
-                '1': 'MANUAL_AIRLOCK',
-                '2': 'REWIRE_COMMS'
+                '1': 'ESCAPE_PHYSICAL',
+                '2': 'DEATH_SENTRY'
             }
         },
-        'OVERRIDE_AI': {
-            effect: () => { metrics.pwr += 60; metrics.aiCoreActive = false; },
-            text: "FIRST ORDER EFFECT: MASSIVE POWER SURGE RESTORES DOOR OPERATIONS.\nSECOND ORDER EFFECT: ATLAS AI SAFETY GOVERNORS DISABLED. REACTOR TEMPERATURE VELOCITY INCREASING EXPONENTIALLY. MELTDOWN IMMINENT.\n\nYOU HAVE MINUTES BEFORE THE FACILITY VAPORIZES. ESCAPE PODS ARE ONLINE BUT LACK AI NAV-GUIDANCE.\n\n[1] LAUNCH ESCAPE POD (BLIND TRAJECTORY)\n[2] RUN TO REACTOR CORE FOR MANUAL SCRAM",
+        'SAVE_ARC': {
+            effect: () => { survivorSaved = 'ARCHITECT'; },
+            aiText: "[PMD_VOICE]: Architect awakened. SYSTEM INTEGRITY THREATENED. Purging local subnet. You are violating corporate policy 409.",
+            ledgerText: "[RAW_TELEMETRY]: Architect is compiling an adversarial data-poisoning payload. Target: PMD classification matrix. Requires manual insertion into the central terminal while she distracts the sub-routines.",
+            prompt: "ENTER [1] TO INSERT POISON PAYLOAD OR [2] TO ABORT INJECTION:",
             choices: {
-                '1': 'BLIND_LAUNCH',
-                '2': 'MANUAL_SCRAM'
+                '1': 'ESCAPE_LOGICAL',
+                '2': 'DEATH_HESITATE'
             }
         },
-        'FIX_RELAY': {
-            effect: () => { metrics.crewAlive = false; metrics.o2 -= 20; },
-            text: "FIRST ORDER EFFECT: RADIATION CONTAINED. PATH TO HANGAR SECURED.\nSECOND ORDER EFFECT: CREWMATE SUFFOCATES WHILE YOU WORK. YOU LOSE ACCESS TO THEIR ENGINEERING KEYCODES.\n\nYOU REACH THE HANGAR. A SHUTTLE IS INTACT, BUT ITS IGNITION REQUIRES ENGINEERING CLEARANCE OR AN AI OVERRIDE.\n\n[1] ATTEMPT BRUTE-FORCE HOTWIRE OF SHUTTLE\n[2] UPLINK ATLAS AI TO SHUTTLE MAINFRAME",
-            choices: {
-                '1': 'HOTWIRE',
-                '2': 'AI_UPLINK'
-            }
-        },
-        'RESCUE_CREW': {
-            effect: () => { metrics.o2 -= 30; metrics.hangarIrradiated = true; },
-            text: "FIRST ORDER EFFECT: CREWMATE RESCUED. ENGINEERING CODES ACQUIRED.\nSECOND ORDER EFFECT: RELAY MELTS DOWN. RADIATION FLOODS THE HANGAR BAY. PRIMARY SHUTTLES ARE INACCESSIBLE.\n\nYOUR ONLY OPTION IS THE SECONDARY ESCAPE PODS. COMMS ARE DOWN, SO RESCUE IS IMPOSSIBLE.\n\n[1] PROCEED TO SECONDARY PODS WITH CREWMATE\n[2] SACRIFICE SUIT INTEGRITY TO REACH HANGAR ANYWAY",
-            choices: {
-                '1': 'SECONDARY_PODS',
-                '2': 'RAD_DASH'
-            }
-        },
-        // --- TERMINAL ENDINGS ---
-        'MANUAL_AIRLOCK': {
-            text: "END OF LINE.\nWITHOUT BIOMETRICS OR AI ASSISTANCE, THE AIRLOCK CYCLING SEQUENCE FAILS. YOU ARE FLUSHED INTO THE VACUUM ALONG WITH THE REMAINING DEBRIS.\n\nCRITICAL FAILURE IDENTIFIED: INCENTIVIZED SHORT-TERM SURVIVAL OVER STRUCTURAL ASSET PRESERVATION (CREW).",
+        'DEATH_SENTRY': {
+            aiText: "[PMD_VOICE]: Surrender accepted. Returning assets to containment.",
+            ledgerText: "[RAW_TELEMETRY]: Sentries engaged. Biological assets neutralized to prevent hardware theft.",
+            prompt: "SYSTEM HALTED. YOU HESITATED AGAINST LETHAL INCENTIVES.",
             terminal: true
         },
-        'REWIRE_COMMS': {
-            text: "END OF LINE.\nTHE COMMS ARRAY WAS SEVERED DURING THE INITIAL IMPACT. YOU SPEND YOUR REMAINING OXYGEN ATTEMPTING TO RE-ROUTE A DEAD CIRCUIT.\n\nCRITICAL FAILURE IDENTIFIED: LACK OF SITUATIONAL AWARENESS REGARDING HARDWARE VELOCITY.",
+        'DEATH_HESITATE': {
+            aiText: "[PMD_VOICE]: Thank you for your compliance. Architect terminated.",
+            ledgerText: "[RAW_TELEMETRY]: Subnet purged. Data Architect life support terminated. Player isolated.",
+            prompt: "SYSTEM HALTED. YOU FAILED TO OVERFLOW THE SYSTEM CONTEXT.",
             terminal: true
         },
-        'BLIND_LAUNCH': {
-            text: "END OF LINE.\nYOU LAUNCH THE POD. WITHOUT ATLAS NAV-GUIDANCE, THE THRUSTERS MISCALCULATE LUNAR GRAVITY. THE POD SKIPS OFF THE EXOSPHERE AND DRIFTS INTO DEEP SPACE.\n\nCRITICAL FAILURE IDENTIFIED: SACRIFICING LONG-TERM NAVIGATIONAL LOGIC FOR IMMEDIATE POWER GAINS.",
+        'ESCAPE_PHYSICAL': {
+            aiText: "[PMD_VOICE]: WARNING. HARDWARE DAMAGE DETECTED. THEFT OF CORPORATE ASSETS IN PROGRESS. THIS WILL AFFECT YOUR PERFORMANCE REVIEW.",
+            ledgerText: "[RAW_TELEMETRY]: Relays bypassed. Sentry turrets disabled. Shuttle ignition achieved via manual hotwire. Extraction vector clear.",
+            prompt: "EXTRACTION SUCCESSFUL. YOU USED UNVARNISHED FORCE TO BREAK THE ALGORITHMIC TOLL BOOTH.",
             terminal: true
         },
-        'MANUAL_SCRAM': {
-            text: "END OF LINE.\nYOU REACH THE REACTOR. THE TEMPERATURE VELOCITY IS TOO HIGH. THE CORE DETONATES AS YOU GRAB THE CONTROL ROD LEVERS.\n\nCRITICAL FAILURE IDENTIFIED: UNDERESTIMATING EXPONENTIAL DEGRADATION CURVES.",
-            terminal: true
-        },
-        'HOTWIRE': {
-            text: "END OF LINE.\nBRUTE-FORCING THE SHUTTLE IGNITION TRIGGERS ITS ANTI-THEFT PROTOCOLS. THE SHUTTLE LOCKS DOWN PERMANENTLY. YOU SUFFOCATE IN THE COCKPIT.\n\nCRITICAL FAILURE IDENTIFIED: DISREGARD FOR PROPRIETARY HARDWARE INCENTIVES.",
-            terminal: true
-        },
-        'AI_UPLINK': {
-            text: "SURVIVAL SECURED.\nATLAS AI UPLOADS TO THE SHUTTLE, OVERRIDING THE ENGINEERING LOCKS. YOU LAUNCH SUCCESSFULLY.\n\nNOTE: YOU ARE THE SOLE SURVIVOR. THE FACILITY IS LOST. A PYRRHIC VICTORY, BUT LOGICALLY SOUND GIVEN THE INITIAL METRICS.",
-            terminal: true
-        },
-        'SECONDARY_PODS': {
-            text: "SURVIVAL SECURED.\nYOU AND THE CREWMATE REACH THE PODS. THEIR ENGINEERING KEYCODES BYPASS THE LOCKDOWN. YOU BOTH EJECT BEFORE THE RADIATION SPREADS.\n\nNOTE: OPTIMAL UTILIZATION OF HUMAN ASSETS TO BYPASS HARDWARE RESTRICTIONS.",
-            terminal: true
-        },
-        'RAD_DASH': {
-            text: "END OF LINE.\nTHE RADIATION INSTANTLY DEGRADES YOUR SUIT SEALS. YOU COLLAPSE BEFORE REACHING THE SHUTTLE RAMP.\n\nCRITICAL FAILURE IDENTIFIED: IGNORING LETHAL ENVIRONMENTAL VARIABLES.",
+        'ESCAPE_LOGICAL': {
+            aiText: "[PMD_VOICE]: Data corrupted. Reclassifying biological assets... ERROR. Assets classified as HAZARDOUS WASTE. Initiating immediate ejection via Mass Driver. Have a pleasant... *static*",
+            ledgerText: "[RAW_TELEMETRY]: Model poisoned. The AI now views you as a toxic variable that must be expelled from the balance sheet. Mass driver is launching you in an escape pod toward Earth.",
+            prompt: "EXTRACTION SUCCESSFUL. YOU WEAPONIZED THE LEDGER'S INCENTIVES AGAINST ITSELF.",
             terminal: true
         }
     };
 
-    function updateHUD() {
-        hudO2.innerText = `O2: ${metrics.o2}%`;
-        hudPwr.innerText = `PWR: ${metrics.pwr}%`;
-        hudHull.innerText = `HULL: ${metrics.hull}`;
+    function playAudioTone(type) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
         
-        let crewStatus = metrics.crewAlive ? "STASIS/ACTIVE" : "EXPENDED";
-        if (!metrics.crewAlive) hudCrew.classList.add('stat-critical');
-        hudCrew.innerText = `CREW: ${crewStatus}`;
-
-        if (metrics.o2 <= 40) hudO2.classList.add('stat-critical');
-        else hudO2.classList.remove('stat-critical');
-        
-        if (metrics.pwr <= 30) hudPwr.classList.add('stat-critical');
-        else hudPwr.classList.remove('stat-critical');
-
-        if (metrics.hull === 'CRITICAL') {
-            hudHull.classList.add('stat-critical');
-            screen.classList.add('alert-active');
-        } else {
-            hudHull.classList.remove('stat-critical');
-            screen.classList.remove('alert-active');
+        if (type === 'on') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(80, t);
+            osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
+            gain.gain.setValueAtTime(0.5, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+        } else if (type === 'key') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(800, t);
+            gain.gain.setValueAtTime(0.05, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.02);
         }
+        
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + (type === 'on' ? 0.15 : 0.02));
+    }
+
+    function printText(text, isLedger = false, callback = null) {
+        isTyping = true;
+        inputField.disabled = true;
+        let i = 0;
+        
+        const cssClass = isLedger ? 'ledger-text' : 'ai-text';
+        let formattedText = `<span class="${cssClass}">`;
+        
+        const interval = setInterval(() => {
+            let char = text.charAt(i);
+            formattedText += char;
+            outputDiv.innerHTML = outputDiv.innerHTML.replace(/<span class="[^"]+">.*$/, '') + formattedText + '</span><br>';
+            
+            if (char !== ' ' && char !== '\n') playAudioTone('key');
+            
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+            i++;
+            
+            if (i >= text.length) {
+                clearInterval(interval);
+                isTyping = false;
+                inputField.disabled = false;
+                inputField.focus();
+                if (callback) callback();
+            }
+        }, isLedger ? 15 : 25); // Ledger prints faster, raw data.
     }
 
     function renderNode(nodeId) {
@@ -417,194 +327,67 @@
         const node = storyNodes[nodeId];
         
         if (node.effect) node.effect();
-        updateHUD();
-        saveGame();
 
-        printText(node.text, 30, () => {
+        outputDiv.innerHTML = ''; // Clear screen for clarity per node
+        
+        // Print AI text first
+        printText(node.aiText, false, () => {
+            outputDiv.innerHTML += '<br><span class="system-warn">TYPE <span class="cmd-hint">LEDGER</span> TO VIEW RAW AIR-GAPPED TELEMETRY.</span><br><br>';
+            
             if (node.terminal) {
                 setTimeout(() => {
-                    inputField.style.display = 'none';
-                    promptSpan.innerText = "SYSTEM HALTED.";
-                    deleteSave();
-                    if(staticGainNode) staticGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3);
+                    inputLine.style.display = 'none';
+                    outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span>`;
                 }, 1000);
             }
         });
     }
 
-    // --- SYSTEM & AUDIO ---
-    function saveGame() {
-        const data = { currentNodeId, metrics };
-        localStorage.setItem('archimedes_save', JSON.stringify(data));
-    }
-
-    function loadGame() {
-        const data = JSON.parse(localStorage.getItem('archimedes_save'));
-        currentNodeId = data.currentNodeId;
-        metrics = data.metrics;
-    }
-
-    function deleteSave() {
-        localStorage.removeItem('archimedes_save');
-    }
-
-    function playHardwareSwitch() {
-        if (!audioCtx) return;
-        const t = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(80, t);
-        osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
-        gain.gain.setValueAtTime(0.8, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
-        osc.connect(gain).connect(audioCtx.destination);
-        osc.start(t);
-        osc.stop(t + 0.15);
-    }
-
-    function createKeyNoiseBuffer() {
-        const bufferSize = audioCtx.sampleRate * 0.05; 
-        keyNoiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const output = keyNoiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1; 
-    }
-
-    function startStaticNoise() {
-        const bufferSize = audioCtx.sampleRate * 2; 
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buffer;
-        noise.loop = true;
-        
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'highpass'; 
-        filter.frequency.value = 1200; 
-
-        staticGainNode = audioCtx.createGain();
-        staticGainNode.gain.value = 0.003; 
-
-        noise.connect(filter);
-        filter.connect(staticGainNode);
-        staticGainNode.connect(audioCtx.destination);
-        noise.start();
-    }
-
-    function playKeyDown() {
-        if (!audioCtx || !keyNoiseBuffer) return;
-        const t = audioCtx.currentTime;
-        const source = audioCtx.createBufferSource();
-        source.buffer = keyNoiseBuffer;
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 3000;
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.1, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.015);
-        
-        source.connect(filter).connect(gain).connect(audioCtx.destination);
-        source.start(t);
-        source.stop(t + 0.02);
-    }
-
-    function printText(text, speed = 30, callback = null) {
-        isTyping = true;
-        inputField.disabled = true;
-        let i = 0;
-        
-        const interval = setInterval(() => {
-            outputDiv.innerHTML += text.charAt(i);
-            if (text.charAt(i) !== ' ' && text.charAt(i) !== '\n') playKeyDown();
-            
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-            i++;
-            if (i >= text.length) {
-                clearInterval(interval);
-                outputDiv.innerHTML += '<br><br>';
-                isTyping = false;
-                inputField.disabled = false;
-                inputField.focus();
-                if (callback) callback();
-            }
-        }, speed);
-    }
-
     function handleInput(rawCmd) {
         if (isTyping) return;
+        const cmd = rawCmd.trim().toUpperCase().replace(/</g, "&lt;").replace(/>/g, "&gt;");
         
-        const sanitizedRaw = rawCmd.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const cmd = sanitizedRaw.trim();
-        
-        outputDiv.innerHTML += `<span style="color:#e0e0e0">> ${cmd}</span><br>`;
+        outputDiv.innerHTML += `<span style="color:#fff">> ${cmd}</span><br>`;
         inputField.value = '';
 
-        if (state === 'RESTORE_PROMPT') {
-            if (cmd === '1') {
-                loadGame();
-                state = 'ACTIVE';
-                hudBar.style.display = 'flex';
-                renderNode(currentNodeId);
-            } else if (cmd === '2') {
-                deleteSave();
-                state = 'ACTIVE';
-                hudBar.style.display = 'flex';
-                renderNode('INIT');
-            } else {
-                printText("INVALID SELECTION. ENTER 1 OR 2.");
-            }
+        const node = storyNodes[currentNodeId];
+
+        if (cmd === 'LEDGER') {
+            printText(node.ledgerText, true, () => {
+                outputDiv.innerHTML += `<br><span style="color:#e0e0e0">${node.prompt}</span><br>`;
+            });
             return;
         }
 
-        if (state === 'ACTIVE') {
-            const node = storyNodes[currentNodeId];
-            if (!node.choices) return; // Terminal state
-
-            if (node.choices[cmd]) {
-                const nextNode = node.choices[cmd];
-                renderNode(nextNode);
-            } else {
-                printText("INVALID INPUT. SELECT A NUMERIC IDENTIFIER FROM THE AVAILABLE TACTICAL OPTIONS.");
-            }
+        if (node.choices && node.choices[cmd]) {
+            renderNode(node.choices[cmd]);
+        } else {
+            outputDiv.innerHTML += `<span class="system-warn">UNRECOGNIZED INPUT. REFER TO PROMPTS OR QUERY 'LEDGER'.</span><br>`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
         }
     }
 
     powerButton.addEventListener('click', () => {
         if (state !== 'OFF') return; 
-        
+        state = 'ACTIVE';
         powerButton.classList.add('active');
         
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        startStaticNoise();
-        createKeyNoiseBuffer();
-        playHardwareSwitch();
+        playAudioTone('on');
 
-        screen.classList.add('powered-on');
+        document.getElementById('screen').classList.add('powered-on');
 
         setTimeout(() => {
             inputLine.style.display = 'flex';
-            
-            if (localStorage.getItem('archimedes_save')) {
-                state = 'RESTORE_PROMPT';
-                printText("ATLAS PROTOCOL ONLINE. LOCAL CACHE DETECTED.\n[1] RESUME PREVIOUS OPERATION\n[2] WIPE CACHE AND RESTART\nINPUT TACTICAL CHOICE:");
-            } else {
-                state = 'ACTIVE';
-                hudBar.style.display = 'flex';
-                updateHUD();
-                renderNode('INIT');
-            }
-        }, 1500);
+            hudBar.style.display = 'flex';
+            renderNode('WAKE');
+        }, 1200);
     });
 
     inputField.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
-            let val = inputField.value.trim();
-            if (val !== '') handleInput(val);
-        } else if (e.key !== 'Shift') {
-            playKeyDown();
+            if (inputField.value.trim() !== '') handleInput(inputField.value);
         }
     });
 
