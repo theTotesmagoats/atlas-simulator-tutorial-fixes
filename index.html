@@ -36,12 +36,36 @@
         .metric-val { color:#5bc0de; font-weight:bold; transition: color 0.3s; }
         .metric-warn { color:#ff4444 !important; animation:blinker 1s infinite; text-shadow:0 0 5px #ff4444; }
         
-        #output { flex-grow:1; overflow-y:auto; white-space:pre-wrap; margin-bottom:10px; padding-right:20px; z-index:3; line-height:1.3; }
+        #center-warning {
+            display:none; position:absolute; top:30px; left:50%; transform:translateX(-50%);
+            color:#ff4444; font-size:2.5rem; font-weight:bold; z-index:20; 
+            text-shadow:0 0 15px #ff0000; border: 2px solid #ff4444; padding: 5px 20px;
+            background: rgba(20, 0, 0, 0.8);
+        }
+
+        #output { flex-grow:1; overflow-y:auto; white-space:pre-wrap; margin-bottom:10px; padding-right:250px; z-index:3; line-height:1.3; }
+        
         #input-line { display:none; align-items:center; font-weight:bold; z-index:3; margin-bottom:5px; flex-shrink:0; }
         #prompt { margin-right:15px; color:#00e5ff; }
         #cmd { background:transparent; border:none; color:inherit; font-family:'VT323',monospace; font-size:1em; flex-grow:1; outline:none; text-transform:uppercase; text-shadow:inherit; }
         input:-webkit-input-placeholder { text-transform:none !important; }
         
+        #command-bar {
+            display: none; flex-shrink: 0; z-index: 10;
+            border-top: 1px dashed #1a2b3c; padding-top: 15px; margin-top: 5px;
+            gap: 30px; font-size: 1.2rem; color: #4a8b99;
+        }
+        .cmd-ref { position: relative; cursor: help; color: #00e5ff; font-weight: bold; }
+        .cmd-ref::before {
+            content: attr(data-hint);
+            position: absolute; bottom: 150%; left: 0;
+            background: #02060b; border: 1px solid #5bc0de; color: #5bc0de;
+            padding: 8px 12px; white-space: nowrap; font-size: 1rem;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            z-index: 20; box-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        .cmd-ref:hover::before { opacity: 1; }
+
         #hardware-panel { 
             flex-shrink:0; height:40px; margin-top:20px; 
             display:flex; justify-content:flex-end; align-items:center; gap:15px; 
@@ -62,6 +86,7 @@
 <body>
 <div id="chassis">
     <div id="screen">
+        <div id="center-warning">LOCK-ON: 12.0s</div>
         <div id="top-metrics">
             <div class="metric-row">O2 RESERVE: <span id="m-o2" class="metric-val">100%</span></div>
             <div class="metric-row">SUIT PWR: <span id="m-pwr" class="metric-val">100%</span></div>
@@ -72,6 +97,12 @@
         <div id="input-line">
             <span id="prompt">INPUT></span>
             <input type="text" id="cmd" autocomplete="off">
+        </div>
+        <div id="command-bar">
+            <span class="cmd-ref" data-hint="Execute primary or secondary choices presented in prompts.">[1] / [2] ACTION</span>
+            <span class="cmd-ref" data-hint="Extract raw, unaligned telemetry from local air-gapped hardware.">LEDGER</span>
+            <span class="cmd-ref" data-hint="Input X and Y coordinates to execute a manual firing solution.">TARGET [X] [Y]</span>
+            <span class="cmd-ref" data-hint="Display system command reference and active syntax.">HELP</span>
         </div>
     </div>
     <div id="hardware-panel">
@@ -85,7 +116,9 @@ const outputDiv = document.getElementById('output');
 const inputField = document.getElementById('cmd');
 const inputLine = document.getElementById('input-line');
 const metricsPanel = document.getElementById('top-metrics');
+const commandBar = document.getElementById('command-bar');
 const powerButton = document.getElementById('power-button');
+const centerWarning = document.getElementById('center-warning');
 
 const mO2 = document.getElementById('m-o2'), mPwr = document.getElementById('m-pwr'), 
       mMed = document.getElementById('m-med'), mInt = document.getElementById('m-int');
@@ -96,8 +129,14 @@ let hasLedger = false;
 let terminalTimeout;
 let typeInterval;
 let seqTimeout; 
+let radarInterval;
 let metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
-let currentNodeId = 'CONCUSSION_WAKE';
+let currentNodeId = 'OS_BOOT';
+
+// Radar Minigame Variables
+let targetX = 0;
+let targetY = 0;
+let radarTime = 0;
 
 let audioCtx;
 let clickBuffer = null;
@@ -107,7 +146,6 @@ function initAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const bufferSize = audioCtx.sampleRate * 0.05; 
         
-        // Render the filtered click entirely offline to save the main thread
         const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, bufferSize, audioCtx.sampleRate);
         const noiseBuffer = offlineCtx.createBuffer(1, bufferSize, offlineCtx.sampleRate);
         const data = noiseBuffer.getChannelData(0);
@@ -151,16 +189,29 @@ function playAudioTone(type) {
         gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
         osc.start(t); osc.stop(t + 0.15);
     } else if (type === 'key' && clickBuffer) {
-        // Zero-latency playback of the pre-rendered audio
         const source = audioCtx.createBufferSource();
         source.buffer = clickBuffer;
         source.playbackRate.value = 0.8 + Math.random() * 0.4; 
         source.connect(audioCtx.destination);
         source.start(t);
+    } else if (type === 'alarm') {
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.type = 'sawtooth'; 
+        osc.frequency.setValueAtTime(300, t); 
+        osc.frequency.linearRampToValueAtTime(400, t + 0.1);
+        gain.gain.setValueAtTime(0.2, t); 
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+        osc.start(t); osc.stop(t + 0.2);
     }
 }
 
 const storyNodes = {
+    'OS_BOOT': {
+        aiText: "[SYS_INIT]: BIOMETRIC SYNC ESTABLISHED. CORTICAL IMPLANT REBOOTING...\nWarning: Sensorium relay offline. Manual cognitive override required.",
+        prompt: "TYPE 'HELP' TO INITIALIZE COMMAND INTERFACE.",
+        choices: { 'HELP': 'CONCUSSION_WAKE' }
+    },
     'CONCUSSION_WAKE': {
         actionText: "You regain consciousness on the freezing deck plates. Your skull throbs in rhythm with the piercing blare of a klaxon. Red emergency strobes pulse through the frost on your visor. The terminal above you is flashing raw hexadecimal faults.",
         prompt: "[1] STAND UP AND ACCESS TERMINAL",
@@ -204,13 +255,21 @@ const storyNodes = {
     'CORRIDOR_RUN': {
         effect: () => { metrics.o2 -= 10; },
         aiText: "[PMD_VOICE]: ERROR. Corridor 4 is designated as a vacuum quarantine zone. Unauthorized biological presence detected. Activating automated suppression turrets.",
-        prompt: "The air in the corridor is cold, but pressure is normal. The AI lied. \nTwo ceiling turrets lock onto your visor.\n\n[1] SPRINT TO COMMAND CENTER (-20 O2, DANGEROUS) | [2] DIVE INTO MAINTENANCE HATCH",
-        choices: { '1': 'COMMAND_CENTER_RUSH', '2': 'SUB_LEVEL_HOT' }
+        prompt: "The air in the corridor is cold, but pressure is normal. The AI lied. \nA ceiling turret locks its targeting laser onto your chest plate.\n\n[1] DRAW MINING LASER AND RETURN FIRE | [2] DIVE INTO MAINTENANCE HATCH",
+        choices: { '1': 'RADAR_INIT', '2': 'SUB_LEVEL_HOT' }
     },
-    'COMMAND_CENTER_RUSH': {
+    'RADAR_INIT': {
+        // Triggered dynamically in handleInput
+    },
+    'TURRET_DESTROYED': {
+        actionText: "Your mining laser cleanly severs the turret's optical relay just as it fires. The tungsten rounds rip into the deck plating harmlessly at your feet. The corridor is clear.",
+        prompt: "[1] ACCESS THE SUB-LEVEL MAINTENANCE HATCH",
+        choices: { '1': 'SUB_LEVEL_SAFE' }
+    },
+    'DEATH_TURRET': {
         effect: () => { metrics.int -= 100; },
         aiText: "[PMD_VOICE]: Target acquired. Firing.",
-        prompt: "SYSTEM HALTED. 7.62MM TUNGSTEN ROUNDS SHATTER YOUR VISOR. YOU WERE A DISPOSABLE VARIABLE.",
+        prompt: "SYSTEM HALTED. 7.62MM TUNGSTEN ROUNDS SHATTER YOUR VISOR. YOU WERE TOO SLOW.",
         terminal: true
     },
     'SUB_LEVEL_SAFE': {
@@ -314,6 +373,45 @@ function checkDeath() {
     return null;
 }
 
+function startRadarMinigame() {
+    state = 'RADAR_ACTIVE';
+    targetX = Math.floor(Math.random() * 6) + 2; 
+    targetY = Math.floor(Math.random() * 6) + 1; 
+    radarTime = 12.0;
+    
+    centerWarning.style.display = 'block';
+    
+    radarInterval = setInterval(() => {
+        radarTime -= 0.1;
+        centerWarning.innerText = "LOCK-ON: " + Math.max(0, radarTime).toFixed(1) + "s";
+        playAudioTone('alarm');
+        
+        if(radarTime <= 0) {
+            clearInterval(radarInterval);
+            centerWarning.style.display = 'none';
+            renderNode('DEATH_TURRET');
+        }
+    }, 100);
+
+    let grid = "   0 1 2 3 4 5 6 7\n";
+    for(let y=0; y<8; y++) {
+        grid += " " + y + " ";
+        for(let x=0; x<8; x++) {
+            if(x===0 && y===0) grid += "<span style='color:#00e5ff'>U</span> ";
+            else if(x===targetX && y===targetY) grid += "<span style='color:#ff4444'>T</span> ";
+            else grid += "<span style='color:#3a5b6c'>.</span> ";
+        }
+        grid += "\n";
+    }
+    
+    outputDiv.innerHTML += `<br><span class='system-warn'>MANUAL TARGETING ACTIVE. INPUT FIRING SOLUTION.</span><br><br><span style='font-family: monospace; white-space: pre; line-height:1.2;'>${grid}</span><br><span class='action-text'>INPUT: TARGET [X] [Y]</span><br>`;
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+    
+    isTyping = false;
+    inputField.disabled = false;
+    inputField.focus();
+}
+
 function printText(text, textClass, callback) {
     if (!text) { callback(); return; }
     
@@ -324,11 +422,13 @@ function printText(text, textClass, callback) {
     outputDiv.appendChild(span);
 
     let i = 0; 
+    let charCount = 0;
     typeInterval = setInterval(() => {
         let char = text.charAt(i); 
         span.textContent += char; 
         
-        if (char !== ' ' && char !== '\n' && i % 2 === 0) playAudioTone('key');
+        charCount++;
+        if (char !== ' ' && char !== '\n' && charCount % 2 === 0) playAudioTone('key');
         
         outputDiv.scrollTop = outputDiv.scrollHeight;
         i++;
@@ -337,11 +437,16 @@ function printText(text, textClass, callback) {
             outputDiv.appendChild(document.createElement('br'));
             if (callback) callback();
         }
-    }, textClass === 'ledger-text' ? 10 : 20);
+    }, textClass === 'ledger-text' ? 15 : 25);
 }
 
 function renderSequence(node, sequences) {
     if (sequences.length === 0) {
+        if (currentNodeId === 'RADAR_INIT') {
+            startRadarMinigame();
+            return;
+        }
+
         isTyping = false;
         inputField.disabled = false;
         inputField.focus();
@@ -355,6 +460,7 @@ function renderSequence(node, sequences) {
         if (node.terminal) {
             terminalTimeout = setTimeout(() => {
                 inputLine.style.display = 'none';
+                commandBar.style.display = 'none';
                 outputDiv.innerHTML += '<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
                 outputDiv.scrollTop = outputDiv.scrollHeight;
                 state = 'HALTED';
@@ -407,6 +513,47 @@ function handleInput(rawCmd) {
     outputDiv.innerHTML += `<br><span style="color:#fff">> ${cmd}</span><br>`;
     inputField.value = '';
 
+    // Radar Minigame Interception
+    if (state === 'RADAR_ACTIVE') {
+        const match = cmd.match(/^TARGET\s+(\d)\s+(\d)$/);
+        if (match) {
+            let pX = parseInt(match[1]);
+            let pY = parseInt(match[2]);
+            if (pX === targetX && pY === targetY) {
+                clearInterval(radarInterval);
+                centerWarning.style.display = 'none';
+                state = 'ACTIVE';
+                renderNode('TURRET_DESTROYED');
+            } else {
+                outputDiv.innerHTML += "<span class='system-warn'>CALIBRATION MISS. ADJUST X Y COORDINATES.</span><br>";
+            }
+        } else {
+            outputDiv.innerHTML += "<span style='color:#fda'>SYNTAX ERROR. USE: TARGET X Y</span><br>";
+        }
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        return;
+    }
+
+    // Global HELP interception
+    if (cmd === 'HELP') {
+        commandBar.style.display = 'flex';
+        if (currentNodeId === 'OS_BOOT') {
+            renderNode('CONCUSSION_WAKE');
+        } else {
+            outputDiv.innerHTML += "<span style='color:#aaffff'>[SYSTEM: COMMAND INTERFACE ACTIVE]</span><br>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        return;
+    }
+
+    // Force HELP on OS_BOOT
+    if (currentNodeId === 'OS_BOOT') {
+        outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED. TYPE 'HELP' TO PROCEED.</span><br>";
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        return;
+    }
+
+    // Dynamic Logic Checks
     if (currentNodeId === 'SERVER_CORE' && cmd === '1') {
         if (metrics.pwr >= 40) renderNode('EMP_SUCCESS');
         else {
@@ -423,6 +570,10 @@ function handleInput(rawCmd) {
             metrics.o2 -= 30;
             renderNode('SPRINT_CHECK'); 
         }
+        return;
+    }
+    if (currentNodeId === 'CORRIDOR_RUN' && cmd === '1') {
+        renderNode('RADAR_INIT');
         return;
     }
     if (cmd === 'LEDGER' && (currentNodeId === 'SUB_LEVEL_SAFE' || currentNodeId === 'SUB_LEVEL_HOT')) {
@@ -452,7 +603,7 @@ powerButton.addEventListener('click', () => {
     if (state !== 'OFF' && state !== 'HALTED') return;
 
     state = 'ACTIVE';
-    currentNodeId = 'CONCUSSION_WAKE'; 
+    currentNodeId = 'OS_BOOT'; 
     metrics = { o2: 100, pwr: 100, med: 2, int: 100 };
     hasLedger = false;
     isTyping = false;
@@ -460,8 +611,11 @@ powerButton.addEventListener('click', () => {
     clearInterval(typeInterval);
     clearTimeout(terminalTimeout);
     clearTimeout(seqTimeout); 
+    clearInterval(radarInterval);
+    centerWarning.style.display = 'none';
 
     powerButton.classList.add('active');
+    commandBar.style.display = 'none'; 
     
     initAudio();
     playAudioTone('on');
@@ -471,7 +625,7 @@ powerButton.addEventListener('click', () => {
         inputLine.style.display = 'flex'; 
         metricsPanel.style.display = 'block';
         updateMetrics(); 
-        renderNode('CONCUSSION_WAKE');
+        renderNode('OS_BOOT');
     }, 1800);
 });
 
