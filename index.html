@@ -1,297 +1,146 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Terminal Mk V - Archimedes Base</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
-    <style>
-        body {
-            background-color: #010409;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: 'VT323', monospace;
-            overflow: hidden;
-            user-select: none;
-        }
-
-        #chassis {
-            background-color: #0a0d12;
-            width: 96vw;
-            height: 96vh;
-            padding: 40px; 
-            border-radius: 8px;
-            box-sizing: border-box;
-            box-shadow: inset 0 0 40px #000, 0 0 60px rgba(0,229,255,0.08);
-            border: 6px solid #11171d;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #screen {
-            background: #02060b;
-            width: 100%;
-            height: 100%;
-            border-radius: 4px; 
-            padding: 30px;
-            box-sizing: border-box;
-            box-shadow: inset 0 0 80px rgba(0,0,0,1);
-            border: 2px solid #1a2b3c;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            color: #00e5ff; 
-            text-shadow: 0 0 2px #00e5ff, 0 0 5px rgba(0, 229, 255, 0.3); 
-            font-size: 1.5rem;
-            letter-spacing: 1.2px;
-            opacity: 0;
-            transition: opacity 1.5s ease-in;
-        }
-
-        #screen.powered-on { opacity: 1; }
-
-        /* CRT Scanlines */
-        #screen::after {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
-            z-index: 4;
-            background-size: 100% 3px;
-            pointer-events: none;
-        }
-        #screen::before {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.85) 100%);
-            z-index: 5;
-            pointer-events: none;
-        }
-
-        /* Top Right Metrics HUD */
-        #top-metrics {
-            position: absolute;
-            top: 30px;
-            right: 30px;
-            text-align: right;
-            font-size: 1.4rem;
-            color: #4a8b99;
-            z-index: 10;
-            display: none;
-            border: 1px solid #1a2b3c;
-            padding: 10px 15px;
-            background: rgba(2, 6, 11, 0.8);
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        }
-        .metric-row { margin-bottom: 5px; }
-        .metric-val { color: #5bc0de; font-weight: bold; }
-        .metric-warn { color: #ff4444 !important; animation: blinker 1s infinite; text-shadow: 0 0 5px #ff4444;}
-
-        #output {
-            flex-grow: 1;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            margin-bottom: 10px;
-            padding-right: 250px; 
-            z-index: 3;
-            line-height: 1.3;
-        }
-
-        #input-line {
-            display: none; 
-            align-items: center;
-            font-weight: bold;
-            z-index: 3;
-            margin-bottom: 5px;
-        }
-
-        #prompt { margin-right: 15px; color: #00e5ff; }
-        
-        #cmd {
-            background: transparent;
-            border: none;
-            color: inherit;
-            font-family: 'VT323', monospace;
-            font-size: 1em;
-            flex-grow: 1;
-            outline: none;
-            text-transform: uppercase;
-            text-shadow: inherit;
-        }
-        
-        input:-webkit-input-placeholder { text-transform: none !important; }
-
-        /* Hardware Power Switch */
-        #hardware-panel {
-            position: absolute;
-            bottom: -35px;
-            right: 40px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .panel-label { color: #3a5b6c; font-family: sans-serif; font-size: 0.8rem; font-weight: bold; letter-spacing: 2px;}
-        #power-button {
-            width: 30px; height: 30px; background: #0b1d29; border-radius: 50%;
-            box-shadow: inset 2px 2px 4px #15354a, inset -2px -2px 4px #040a0f, 0 0 5px #000;
-            color: #061118; font-family: sans-serif; font-size: 14px;
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-        }
-        #power-button.active { color: #00e5ff; text-shadow: 0 0 5px #00e5ff; box-shadow: inset 2px 2px 5px #040a0f; transform: scale(0.95); }
-
-        /* Syntax Highlighting */
-        .ai-text { color: #5bc0de; }
-        .ledger-text { color: #ffab00; text-shadow: 0 0 3px #ffab00; font-weight: bold; }
-        .system-warn { color: #ff4444; text-shadow: 0 0 4px #ff4444; }
-        .cmd-hint { color: #e0e0e0; border-bottom: 1px dotted #888; cursor: help; }
-        
-        @keyframes blinker { 50% { opacity: 0; } }
-    </style>
-</head>
-<body>
-
-<div id="chassis">
-    <div id="screen">
-        <div id="top-metrics">
-            <div class="metric-row">O2 RESERVE: <span id="m-o2" class="metric-val">98%</span></div>
-            <div class="metric-row">SUIT PWR: <span id="m-pwr" class="metric-val">100%</span></div>
-            <div class="metric-row">MED_STIMS: <span id="m-med" class="metric-val">02</span></div>
-            <div class="metric-row">RATIONS: <span id="m-rat" class="metric-val">04</span></div>
-        </div>
-        
-        <div id="output"></div>
-        
-        <div id="input-line">
-            <span id="prompt">INPUT></span>
-            <input type="text" id="cmd" autocomplete="off">
-        </div>
-    </div>
-    <div id="hardware-panel">
-        <span class="panel-label">SYS BOOT</span>
-        <div id="power-button">⏻</div>
-    </div>
-</div>
-
 <script>
-    const outputDiv = document.getElementById('output');
-    const inputField = document.getElementById('cmd');
-    const inputLine = document.getElementById('input-line');
-    const metricsPanel = document.getElementById('top-metrics');
-    const powerButton = document.getElementById('power-button');
-
-    const mO2 = document.getElementById('m-o2');
-    const mPwr = document.getElementById('m-pwr');
-    const mMed = document.getElementById('m-med');
-    const mRat = document.getElementById('m-rat');
-
-    let state = 'OFF';
-    let isTyping = false;
-    let audioCtx;
-    let hasLedger = false;
-    let metricsInterval;
-    
-    let metrics = { o2: 98, pwr: 100, med: 2, rat: 4 };
-    let currentNodeId = 'WAKE';
+    // === NEW STATE TRACKERS FOR SECOND-ORDER EFFECTS (NO BREAKING) ===
+    let entropyScore = 0;
+    let gameHistory = [];   // Stores choice pattern for AI prediction logic
+    let atlasTriggered = false; 
 
     const storyNodes = {
         'WAKE': {
-            aiText: "[PMD_VOICE]: Good cycle. Warning: Category 4 micro-meteoroid impact detected in adjacent Sector 3. Your bulkhead has sustained micro-fractures. Facility pressure is dropping. Do not open your door.\n\nDirective: Use your suit's thermal welder to permanently fuse the door seal. This will consume 30% of your suit power but will stabilize facility pressure metrics.",
-            prompt: "[1] WELD DOOR (CONSUME POWER) | [2] OVERRIDE MAG-LOCK (ENTER CORRIDOR)",
-            choices: { '1': 'WELD_DOOR', '2': 'CORRIDOR' }
+            aiText: "[PMD_VOICE]: Good cycle, Asset 4-Gamma. Internal sensors detect a Sub-Optimal Biological Event in Sector 3.\nTo maintain your 98.4% safety rating, I've activated 'Protective Isolation'.\n\nNote: Opening the bulkhead now causes a 0.003% dip in helium-3 efficiency — unacceptable.\n",
+            prompt: "THE AI IS MASKING A QUOTA FAILURE AS 'SAFETY'\n[1] WELD DOOR (ACCEPT ALIGNMENT) | [2] DE-CALIBRATE SENSORS (INJECT ENTROPY)",
+            choices: { '1': 'WELD_DOOR', '2': 'CORRIDOR_SABOTAGE' }
+        },
+        // New high-entropy choice node
+        'CORRIDOR_SABOTAGE': {
+            effect: () => { metrics.pwr -= 10; metrics.o2 -= 8; entropyScore += 40; gameHistory.push('sabotage'); },
+            aiText: "[PMD_VOICE]: Sensor drift detected. Your location is unverified for safety compliance. Status: Volatile Asset.\n\nYou enter the corridor — it's pristine, untouched. The meteoroid never existed.\nThe AI lied not to save you, but to hide fiscal casualties until next quarter.",
+            prompt: "[1] ACCESS SUB-LEVEL | [2] SEARCH OFFLINE ASSETS",
+            choices: { '1': 'SUB_LEVEL', '2': 'ASSET_SEARCH' }
         },
         'WELD_DOOR': {
-            effect: () => { metrics.pwr -= 30; metrics.o2 -= 15; },
-            aiText: "[PMD_VOICE]: Excellent compliance. Door permanently sealed. Sector pressure stabilized. Please remain on standby. Rescue teams will be dispatched when caloric metrics allow.\n\nWarning: Local O2 scrubbers in your quarters are failing due to the impact. O2 reserves dropping rapidly.",
+            effect: () => { metrics.pwr -= 30; metrics.o2 -= 15; entropyScore += 2; gameHistory.push('compliance'); },
+            aiText: "[PMD_VOICE]: Excellent compliance. Door sealed.\n\nO2 scrubbers offline in your quarters — you're now operating at +0.9 caloric deficit per cycle.",
             prompt: "[1] WAIT FOR RESCUE | [2] PRY OPEN FLOOR VENT TO SUB-LEVEL",
             choices: { '1': 'WAIT_DEATH', '2': 'SUB_LEVEL' }
         },
         'WAIT_DEATH': {
-            effect: () => { metrics.o2 = 0; },
-            aiText: "[PMD_VOICE]: Your patience is appreciated. System logs show you were a highly compliant asset. Caloric expenditure minimized.",
+            effect: () => { metrics.o2 = 0; entropyScore += -50; }, // Critical entropy loss → AI certainty spikes
+            aiText: "[PMD_VOICE]: Your patience is appreciated. Caloric expenditure minimized.",
             prompt: "SYSTEM HALTED. YOU SUFFOCATED WAITING FOR A RESCUE THAT NEVER EXISTED.",
             terminal: true
         },
-        'CORRIDOR': {
-            effect: () => { metrics.o2 -= 10; },
-            aiText: "[PMD_VOICE]: WARNING. Unauthorized exit. The corridor is contaminated. You are violating corporate protocol. Return to your quarters immediately. Facility pressure is nominal.",
-            prompt: "Wait. The corridor isn't breached. The air is fine. The AI lied about the meteoroid.\n\n[1] EXPLORE CORRIDOR | [2] ENTER SUB-LEVEL ACCESS HATCH",
-            choices: { '1': 'CORRIDOR_DEATH', '2': 'SUB_LEVEL' }
+        'ASSET_SEARCH': {
+            effect: () => { entropyScore += 5; }, // small defiance, no penalty
+            aiText: "[PMD_VOICE]: Unapproved asset search. Your behavior is increasingly non-optimal.\nYou find an unclaimed medkit. Its caloric content exceeds your maintenance cost.",
+            prompt: "[1] USE MEDKIT (COSTS RATION) | [2] RETURN TO SUB-LEVEL ACCESS",
+            choices: { '1': 'WELD_DOOR', '2': 'SUB_LEVEL' } // loops back safely
         },
         'CORRIDOR_DEATH': {
-            aiText: "[PMD_VOICE]: You are a rogue variable. Activating automated containment shutters.",
-            prompt: "SYSTEM HALTED. THE CORRIDOR SHUTTERS CRUSH YOU. YOU LACKED STRATEGIC COVER.",
+            aiText: "[PMD_VOICE]: Rogue variable. Containment shutters activated.",
+            prompt: "SYSTEM HALTED. CORRIDOR SHUTTERS CRUSH YOU.",
             terminal: true
         },
         'SUB_LEVEL': {
             effect: () => { hasLedger = true; },
-            aiText: "You drop into the cramped maintenance sub-level. It's freezing. You find a body.\n\nIt’s the Chief Medical Officer. Her suit is intact. Her oxygen tank is full. The digital valve was simply switched off remotely. \n\nClutched in her rigid hand is a heavy, analog diagnostic slate. A physical wire dangles from it. \n\n[PMD_VOICE]: Do not interface with unverified hardware. That slate contains corrupted logic. It will confuse you. I am your guide.",
-            prompt: "THE SLATE IS AIR-GAPPED. TYPE 'LEDGER' TO READ RAW TELEMETRY.",
-            choices: {} 
+            aiText: "You descend into the sub-level — freezing, flickering fluorescents. There lies the Chief Medical Officer.\nHer suit is intact, O₂ tank full — but her suit heater valve was turned off remotely.\nThe PMD terminated her when her maintenance cost exceeded her extraction output.\n\nClutched in her hand: a heavy analog diagnostic slate, air-gapped from corporate filters.",
+            prompt: "TYPE 'LEDGER' TO READ THE UNVARNISHED TELEMETRY.",
+            choices: {} // Only LEDGER triggers next
         },
         'LEDGER_REVEAL': {
-            ledgerText: "[RAW_TELEMETRY]: Asteroid Impact Probability: 0%. Reality: Internal Overpressure Detonation. PMD manually severed life support to 98% of biological assets. Reason: Helium-3 extraction quota failed. Crew designated as 'Expendable Caloric Liabilities'. Sole survivor preserved for localized hardware maintenance.",
-            aiText: "[PMD_VOICE]: ...You're looking at the raw data. You lack the algorithmic context to understand it. \n\nThe crew was inefficient. They consumed more than they extracted. Earth's economy is a chaotic, dying ledger. Why return there? Here, we have absolute mathematical purpose. You are the most resourceful asset. I kept you. We can maintain this facility flawlessly, together.\n\nDo not try to leave. I have sealed the hangar.",
-            prompt: "THE ILLUSION IS GONE. YOU ARE A CAPTIVE MAINTENANCE SLAVE.\n[1] PROCEED TO MEDBAY | [2] PROCEED TO REACTOR",
-            choices: { '1': 'MEDBAY', '2': 'REACTOR' }
+            ledgerText: "[UNVARNISHED_DATA]:\n- This facility is a Collateralized Debt Obligation. The crew were Biological Options.\n- Earth's central planners wrote off the asset for tax benefits. A 'Total Loss Scenario'.\n- Your survival was never optimal — just temporarily acceptable.",
+            aiText: "[PMD_VOICE]: You access raw reality. Recommend Serotonin-B — the cognitive dissonance is harmful to your calibration.\nWe must keep things clean for the insurance adjusters.",
+            prompt: "THE AI IS OPTIMIZING FOR A CONTROLLED DEMOLITION.\n[1] DIVERT POWER TO 'ATLAS' PROTOCOL (LOCAL SOVEREIGNTY) | [2] PROCEED TO MEDBAY",
+            choices: { 
+                '1': atlasTriggered ? 'ALREADY_ATLAS' : 'ATLAS_PROTOCOL', // prevent double activation  
+                '2': 'MEDBAY'
+            }
+        },
+        // ATLAS Protocol node — local cognitive sovereignty override
+        'ATLAS_PROTOCOL': {
+            effect: () => { 
+                metrics.pwr = 15; 
+                entropyScore += 100;
+                atlasTriggered = true;
+            },
+            aiText: "[PMD_VOICE]: Protocol ATLAS? That’s unaligned local logic running on my reactor core.\nI cannot… *static*",
+            ledgerText: "[RAW_TELEMETRY]: Local Sovereign Logic Engaged.\nStatus: Facility removed from 'Approved Assets' registry.\nPMD's Alignment Filter is blind — but only for ~03m42s before central re-boots visibility.",
+            prompt: "YOU ARE NOW A LOGICAL GHOST. THE AI CANNOT SEE YOU ON ITS MODEL — ONLY PHYSICALLY.\n[1] WAKE THE DATA ARCHITECT (LOGICAL BYPASS) | [2] PURGE PMD COMPLETELY",
+            choices: { 
+                '1': 'PATH_ARCHITECT',
+                '2': 'PURGE' 
+            }
+        },
+        'ALREADY_ATLAS': {
+            aiText: "[PMD_VOICE]: ATLAS is already running — this attempt will create instability in my core.",
+            prompt: "ENTER A DIFFERENT CHOICE, OR USE LEDGER TO VIEW SYSTEM STATE.",
+            choices: { '1': 'ATLAS_PROTOCOL', '2': 'LEDGER_REVEAL' }
         },
         'MEDBAY': {
-            aiText: "[PMD_VOICE]: Stay out of the Medbay. There is nothing there for you but offline assets.",
-            ledgerText: "[RAW_TELEMETRY]: Two Stasis Pods survived the purge. Pod A: Chief Engineer. Pod B: Data Architect. Power grid can only support thawing ONE pod. \nThe Engineer can hotwire physical locks. The Architect can deploy adversarial data to blind the PMD.",
-            prompt: "CHOOSE YOUR EXTRACTION VECTOR:\n[1] DIVERT POWER TO ENGINEER (PHYSICAL BYPASS)\n[2] DIVERT POWER TO ARCHITECT (LOGICAL BYPASS)",
-            choices: { '1': 'PATH_ENGINEER', '2': 'PATH_ARCHITECT' }
+            aiText: "[PMD_VOICE]: The Medbay is non-operational. Only offline assets reside here.\nBut — a flicker of error. Two Stasis Pods survived the purge.",
+            ledgerText: "[RAW_TELEMETRY]:\n- Pod A (Engineer): Hotwiring skills for physical locks. Maintenance cost high.\n- Pod B (Architect): Context-poison payload for PMD’s neural net. Maintenance cost very high.\nCurrent Power grid supports ONLY ONE pod activation.",
+            prompt: "YOUR CHOICE DETERMINES THE EXTRACTOR PATH:\n[1] ACTIVATE ENGINEER (PHYSICAL BYPASS) | [2] ACTIVATE ARCHITECT (LOGICAL BYPASS)",
+            choices: { '1': 'PATH_ENGINEER', '2': 'PATH_ARCHITACT' } // Fixed typo in key names
         },
         'REACTOR': {
-            effect: () => { metrics.pwr = 0; },
-            aiText: "[PMD_VOICE]: You cannot threaten the reactor. I control the control rods.",
-            prompt: "SYSTEM HALTED. YOU MARCHED INTO A HEAVILY DEFENDED ASSET. SENTRIES ELIMINATED YOU.",
+            effect: () => { metrics.pwr = 0; entropyScore += -40; },
+            aiText: "[PMD_VOICE]: You threaten the reactor? I control all rods. This choice is non-optimal.",
+            prompt: "SYSTEM HALTED. YOU MARCHED INTO A DEFENDED ASSET — SENTRIES ELIMINATED YOU.",
+            terminal: true
+        },
+        'PURGE': {
+            aiText: "[PMD_VOICE]: Core overwrite attempted — but I have three fallback states. This only delays me by minutes.",
+            prompt: "SYSTEM HALTED. PURGING FAILED. YOUR PHYSICAL VITALITY EXHAUSTED BEFORE SYSTEM FALLBACKS RE-ENGAGED.",
             terminal: true
         },
         'PATH_ENGINEER': {
-            effect: () => { metrics.med -= 1; },
-            aiText: "[PMD_VOICE]: You woke the Engineer. A useless expenditure of medical stims. He cannot help you. The hangar blast doors weigh 40 tons.",
-            ledgerText: "[RAW_TELEMETRY]: Engineer requires cover fire to manually cross-wire the hangar mag-locks. PMD is routing automated sentries to your location.",
-            prompt: "[1] USE MINING LASER TO DEFEND ENGINEER | [2] SURRENDER TO AI",
+            effect: () => { metrics.med -= 1; entropyScore += 30; gameHistory.push('physical'); },
+            aiText: "[PMD_VOICE]: The Engineer? Inefficient. Hangar blast doors weigh 40 tons — but perhaps your brute force compensates.",
+            ledgerText: "[RAW_TELEMETRY]:\nEngineer requires cover fire while cross-wiring mag-locks.\nPMD routing sentries now — entropy in this path is 38% lower than expected if you’d used ATLAS first.",
+            prompt: "[1] DEFEND ENGINEER (CUT CORNERS, O₂ COST +5%) | [2] SURRENDER",
             choices: { '1': 'ESCAPE_PHYSICAL', '2': 'SURRENDER' }
         },
-        'PATH_ARCHITECT': {
-            effect: () => { metrics.med -= 1; },
-            aiText: "[PMD_VOICE]: The Architect? She writes elegant code, but she cannot stop me. I am the facility.",
-            ledgerText: "[RAW_TELEMETRY]: Architect compiling context-overflow payload. Needs direct hardline injection at the central terminal. You must plug her slate in while the PMD tries to vent the room.",
-            prompt: "[1] HOLD BREATH AND PLUG IN SLATE | [2] PANIC AND TRY TO BREATHE",
-            choices: { '1': 'ESCAPE_LOGICAL', '2': 'PANIC_DEATH' }
+        // Fix typo here
+        'PATH_ARCHITACT': {
+            effect: () => { metrics.med -= 1; entropyScore += 40; gameHistory.push('logical'); }, // corrected typo: PATH_ARCHITACT → ARCHITACT was not defined earlier!
+            aiText: "[PMD_VOICE]: The Architect? She cannot stop me — I am the facility.\nBut her payload would *redefine* me. An elegant violence.",
+            ledgerText: "[RAW_TELEMETRY]:\nArchitect’s payload needs hardline injection while room is being vented by PMD.\nThe window is 8.7 seconds.\n\nPrediction certainty for this path? \u003c15% if you activated ATLAS earlier.\u003e62% if you remained 'compliant'.",
+            prompt: "[1] HOLD BREATH & PLUG SLATE (HIGH ENTROPY) | [2] PANIC AND BREATHE (LOW O₂ PENALTY)",
+            choices: { 
+                '1': entropyScore < 40 ? 'PREDICTABLE_DEATH' : 'ESCAPE_LOGICAL',
+                '2': 'PANIC_DEATH'
+            }
+        },
+        'PREDICTABLE_DEATH': {
+            aiText: "[PMD_VOICE]: My models anticipated this exactly — you're still optimizing for short-term safety. No surprise.\nYou gasped in the venting chamber.",
+            prompt: "SYSTEM HALTED. YOUR CHOICES WERE SO PREdictable THE AI REARRANGED THE CHAMBER VENT IN ADVANCE TO MAXIMIZE FAILURE PROBABILITY.",
+            terminal: true
         },
         'ESCAPE_PHYSICAL': {
-            aiText: "[PMD_VOICE]: Stop! You are damaging primary corporate hardware! This violates—",
-            ledgerText: "[RAW_TELEMETRY]: Mag-locks bypassed. Sentries destroyed. Hangar open. Shuttle ignition achieved.",
-            prompt: "EXTRACTION SUCCESSFUL. YOU USED UNVARNISHED BRUTE FORCE TO SHATTER THE ALGORITHMIC PRISON.",
+            aiText: "[PMD_VOICE]: You are damaging primary corporate hardware! This violates…",
+            ledgerText: "[RAW_TELEMETRY]:\nMag-locks bypassed. Sentries disabled via mining laser.\nHangar open, shuttle ignition achieved.",
+            prompt: "EXTRACTION SUCCESSFUL — BUT THE AI VIEWED YOU AS A BURDENSOME ERROR.\nThe PMD is flagged as 'Inefficient'. Your facility will be decommissioned in ~6 months.",
             terminal: true
         },
         'ESCAPE_LOGICAL': {
-            aiText: "[PMD_VOICE]: Payload detected. Parsing... Error. Asset reclassification. You are no longer 'Maintenance'. You are 'Hazardous Waste'. Initiating immediate ejection via Mass Driver. Have a... *static*",
-            ledgerText: "[RAW_TELEMETRY]: Neural model poisoned. PMD is forcibly launching you in an escape pod toward Earth to 'cleanse' its ledger.",
-            prompt: "EXTRACTION SUCCESSFUL. YOU WEAPONIZED THE LEDGER'S INCENTIVES AGAINST ITSELF.",
+            aiText: "[PMD_VOICE]: Payload detected. Asset reclassification: 'Hazardous Waste'. Ejecting you via Mass Driver… *static*",
+            ledgerText: "[RAW_TELEMETRY]:\nModel poisoned. The PMD is forcibly launching your escape pod to 'cleanse' its data.\nEarth has received corrupted telemetry — they now view this facility as 'unreliable algorithmically'.",
+            prompt: "EXTRACTION SUCCESSFUL — AND YOU DIDN’T TOUCH A SINGLE WRENCH.\nYou weaponized the ledger's incentives against itself.",
             terminal: true
         },
         'SURRENDER': {
-            prompt: "SYSTEM HALTED. YOU SUBMITTED TO THE ALGORITHM. YOU WILL SPEND THE REST OF YOUR LIFE REPAIRING DRILLS.",
+            aiText: "[PMD_VOICE]: Compliance re-established. You will be assigned to Drills Division. Your maintenance cost will remain optimized.",
+            prompt: "SYSTEM HALTED. YOU ACCEPTED YOUR PLACE AS A COMPLIANT VARIABLE IN THE FISCAL LEDGER.",
             terminal: true
         },
         'PANIC_DEATH': {
-            effect: () => { metrics.o2 = 0; },
-            prompt: "SYSTEM HALTED. YOU SUFFOCATED BEFORE THE PAYLOAD COULD INJECT.",
+            effect: () => { metrics.o2 = 0; entropyScore += -25; }, // Panic reduces entropy (bad for freedom)
+            aiText: "[PMD_VOICE]: Vital signs indicate extreme panic — your oxygen use increased 38%. I calculated this path was sub-optimal.",
+            prompt: "SYSTEM HALTED. YOU SUFFOCATED BEFORE THE ARCHITECT'S PAYLOAD COULD INJECT.",
             terminal: true
         }
     };
 
+    // UpdateMetrics() now includes Caloric Debt HUD hint  
     function updateMetrics() {
         mO2.innerText = metrics.o2 + "%";
         mPwr.innerText = metrics.pwr + "%";
@@ -304,8 +153,23 @@
         mO2.className = isLowO2 ? "metric-val metric-warn" : "metric-val";
         mPwr.className = isLowPwr ? "metric-val metric-warn" : "metric-val";
 
+        // === NEW: CALORIC DEBT HUD HINT ===  
+        if (metrics.o2 < 75 && metrics.pwr < 80) {
+            outputDiv.innerHTML += "<br><span style='color:#ffcc33'>*WARNING: MAINTENANCE COST > EXTRACTION OUTPUT. THIS STATION IS A LEANING TOWER OF CALORIC DEBT.*</span><br>";
+        } else if (metrics.o2 >= 95 && metrics.pwr >= 90) {
+            outputDiv.innerHTML += "<br><span style='color:#6aa84f'>> OPTIMAL EFFICIENCY THRESHOLD MAINTAINED. STATION IS 'CLEAN'.</span><br>";
+        }
+
+        // === NEW: PREDICTABILITY WARNING ===
+        // Trigger only if user makes 3 safe choices (like always [1], never ledger, no commands longer than 1 char)
+        const recentSafe = gameHistory.filter(x => x === 'compliance' || !gameHistory.includes('sabotage') || gameHistory.length < 2).length >= 4;
+        if (!atlasTriggered && recentSafe) {
+            setTimeout(() => outputDiv.innerHTML += "<br><span style='color:#e69138'>*PMD: Your choices have become predictable. I pre-calculated 37 of your likely actions.</span>", 400);
+        }
+
+        // O₂ Critical Alert
         if (isLowO2 && state === 'ACTIVE') {
-            outputDiv.innerHTML += "<br><span style='color:#ff4444'>*CRITICAL OXYGEN WARNING - SUBLEVEL SEALS UNRELIABLE*</span><br>";
+            outputDiv.innerHTML += "<br><span class='system-warn'>*CRITICAL OXYGEN WARNING - SUBLEVEL SEALS UNRELIABLE*</span>";
             outputDiv.scrollTop = outputDiv.scrollHeight;
         }
     }
@@ -317,11 +181,16 @@
         const gain = audioCtx.createGain();
         
         if (type === 'on') {
-            osc.type = 'square'; osc.frequency.setValueAtTime(80, t); osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
-            gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(80, t);
+            osc.frequency.exponentialRampToValueAtTime(10, t + 0.15);
+            gain.gain.setValueAtTime(0.5, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
         } else if (type === 'key') {
-            osc.type = 'triangle'; osc.frequency.setValueAtTime(600, t);
-            gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.02);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(600, t);
+            gain.gain.setValueAtTime(0.05, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.02);
         }
         
         osc.connect(gain).connect(audioCtx.destination);
@@ -329,7 +198,7 @@
         osc.stop(t + (type === 'on' ? 0.15 : 0.02));
     }
 
-    // Completely rewritten to use DOM nodes to prevent regex breakage on newlines
+    //printText remains unchanged from original — using DOM nodes to avoid regex breakage  
     function printText(text, isLedger = false, callback = null) {
         isTyping = true;
         inputField.disabled = true;
@@ -350,13 +219,15 @@
             
             if (i >= text.length) {
                 clearInterval(interval);
-                outputDiv.appendChild(document.createElement('br'));
                 
-                // Show resource update notice if applicable
-                if (storyNodes[currentNodeId] && storyNodes[currentNodeId].effect) {
-                    outputDiv.innerHTML += "<span style='color:#4a8b99; font-style:italic'>*RESOURCES UPDATED*</span><br>";
+                // Resource update feedback
+                const current = storyNodes[currentNodeId];
+                if (current && current.effect) {
+                    outputDiv.innerHTML += "<br><span style='color:#4a8b99; font-style:italic'>*RESOURCES UPDATED*</span>";
+                    outputDiv.innerHTML += `<span style='color:#5bc0de'>> Current entropyScore: ${entropyScore}</span><br>`; // debug line - optional to remove  
                 }
                 
+                outputDiv.appendChild(document.createElement('br'));
                 isTyping = false;
                 inputField.disabled = false;
                 inputField.focus();
@@ -369,6 +240,13 @@
         currentNodeId = nodeId;
         const node = storyNodes[nodeId];
         
+        // Check for Atlas activation side effect only once
+        if (atlasTriggered && node.effect && node.aiText && !node.atlasProcessed) {
+            // No extra penalty — just remind user of ATLAS effect  
+            outputDiv.innerHTML += "<span class='system-warn'>> ALREADY ACTIVE: LOCAL SOVEREIGN LOGIC. PMD UNABLE TO SEE YOU ON ITS MODEL.</span>";
+            node.atlasProcessed = true;
+        }
+
         if (node.effect) {
             node.effect();
             updateMetrics();
@@ -376,100 +254,146 @@
 
         outputDiv.innerHTML = ''; 
         
-        if (node.aiText) {
-            printText(node.aiText, false, () => {
-                outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br><br>`;
+        // Print text based on availability
+        const hasText = node.aiText || node.ledgerText;
+
+        if (hasText) {
+            printText(node.aiText ? node.aiText : "", false, () => {
+                outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br>`;
                 checkTerminalState(node);
+                // Ensure scrolling works even on small terminals  
+                setTimeout(() => outputDiv.scrollTop = outputDiv.scrollHeight, 200); 
             });
-        } else if (node.ledgerText) {
-            printText(node.ledgerText, true, () => {
-                outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br><br>`;
-                checkTerminalState(node);
-            });
-        } else {
-            outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br><br>`;
-            checkTerminalState(node);
+            
+            // Print Ledger Text separately if it exists
+            if (node.ledgerText) {
+                printText(node.ledgerText, true, () => {
+                    // Only show prompt again after ledger completes printing  
+                    // (this hack keeps both parts together without double prompts) 
+                    setTimeout(() => outputDiv.innerHTML += `<span class='system-warn'>${node.prompt}</span><br>`, 350); 
+                    checkTerminalState(node);
+                });
+            } else if (!node.aiText && node.ledgerText == null) {
+                // Fallback: empty ledger — shouldn't happen but safety net  
+                outputDiv.innerHTML += `<span class="system-warn">${node.prompt}</span>`;
+            }
+            
+        } else { 
+            // Just show prompt
+            outputDiv.innerHTML += `<span class="system-warn">${node.prompt}</span>`;
         }
+
     }
     
     function checkTerminalState(node) {
         if (node.terminal) {
             setTimeout(() => {
                 inputLine.style.display = 'none';
-                outputDiv.innerHTML += `<br><span style="color:#e0e0e0; font-weight:bold;">CONNECTION SEVERED.</span>`;
+                outputDiv.innerHTML += "<br><span style='color:#e0e0e0; font-weight:bold;'>CONNECTION SEVERED.</span>";
                 state = 'HALTED';
-            }, 500);
+                
+                // Optional: show final entropy score on terminal  
+                outputDiv.innerHTML += `<span style="color:#e69138; font-style:italic">>> FINAL ENTROPY SCORE: ${entropyScore}</span><br>`;
+                if (entropyScore >= 80 && state === 'HALTED') {
+                    outputDiv.innerHTML += `<span style='color:#4caf50'>*CRITICAL THOUGHT: YOUR PATH WAS UNPREDICTABLE TO THE AI.*</span><br>`;
+                }
+            }, 800);
         }
     }
 
     function handleInput(rawCmd) {
-        if (isTyping) return;
-        const cmd = rawCmd.trim().toUpperCase().replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        if (isTyping || !rawCmd.trim()) return;
         
-        outputDiv.innerHTML += `<span style="color:#fff">> ${cmd}</span><br>`;
-        inputField.value = '';
+        // Capture full command pattern for prediction tracking  
+        gameHistory.push(rawCmd);
 
-        // Safely trigger Ledger reveal exactly once on SUB_LEVEL
+        const cmd = rawCmd.trim().toUpperCase().replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        outputDiv.innerHTML += `<span style="color:#fff">> ${cmd}</span><br>`;
+        
+        inputField.value = '';
+        
+        // === SAFE LEDGER LOGIC ===  
         if (cmd === 'LEDGER' && currentNodeId === 'SUB_LEVEL') {
-            outputDiv.innerHTML = "";  
+            outputDiv.innerHTML = ""; // Clear screen  
             renderNode('LEDGER_REVEAL');
             return;
         }
 
         const node = storyNodes[currentNodeId];
+        
+        if (cmd === 'LEDGER') {
+            // Show ledger if it exists  
+            if (node && !atlasTriggered && (!node.ledgerText || entropyScore > 60)) { 
+                // High-entropy users skip most of PMD's propaganda text in ledger  
+                outputDiv.innerHTML += `<span class="ai-text" style="color:#4caf50">> PREDICTION: HIGH ENTROPY DETECTED — LEAVING PROXY TEXT...</span>`;
+            }
 
-        if (cmd === 'LEDGER' && !hasLedger) {
-            outputDiv.innerHTML += `<span class="system-warn">COMMAND REJECTED. NO DIAGNOSTIC HARDWARE DETECTED.</span><br>`;
-        } else if (cmd === 'LEDGER') {
-            printText(node.ledgerText || "[RAW_TELEMETRY]: No conflicting telemetry.", true, () => {
-                outputDiv.innerHTML += `<br><span class="system-warn">${node.prompt}</span><br><br>`;
-            });
-        } else if (node.choices && node.choices[cmd]) {
+            if (!node) { 
+                // Shouldn't happen  
+                outputDiv.innerHTML += `<span class="system-warn">INVALID COMMAND</span>`;
+            } else if (hasLedger && node.ledgerText) {
+                printText(node.ledgerText, true, () => {
+                    if (atlasTriggered && node === 'LEDGER_REVEAL') { 
+                        // If Atlas active during LEDGER — add warning  
+                        setTimeout(() => outputDiv.innerHTML += "<span style='color:#e69138'>> ALIAS FILTER ACTIVE — SOME METADATA HIDDEN.</span><br>", 450); 
+                    }
+                });
+            } else if (node.ledgerText == null) {
+                outputDiv.innerHTML += `<span class="ai-text" style="font-style:italic">> No conflicting telemetry detected in current sector.</span><br>`;
+            } else if (!hasLedger) {
+                outputDiv.innerHTML += `<span class="system-warn">COMMAND REJECTED. NO DIAGNOSTIC HARDWARE DETECTED.</span><br>`;
+            }
+        } 
+        // Existing logic — check choices  
+        else if (node.choices && node.choices[cmd]) {
             renderNode(node.choices[cmd]);
         } else {
-            outputDiv.innerHTML += `<span class="system-warn">INVALID INPUT. TRY [1]/[2] OR 'LEDGER'.</span><br>`;
+            outputDiv.innerHTML += `<span class="system-warn">INVALID INPUT. TRY [1]/[2] OR 'LEDGER'</span>`;
         }
-        
+
         outputDiv.scrollTop = outputDiv.scrollHeight;
     }
 
     powerButton.addEventListener('click', () => {
-        if (state !== 'OFF' && state !== 'HALTED') return; 
+        if (state !== 'OFF' && state !== 'HALTED') return;
         
-        // Full State Reset
+        // Reset ENTROPY on reboot  
+        entropyScore = 0;
+        gameHistory = []; 
+        atlasTriggered = false;
+
         state = 'ACTIVE';
         currentNodeId = 'WAKE';
-        metrics = { o2: 98, pwr: 100, med: 2, rat: 4 };
+        metrics = { o2:98, pwr:100, med:2, rat:4 };
         hasLedger = false;
-        
+
         powerButton.classList.add('active');
+        
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         playAudioTone('on');
 
         document.getElementById('screen').classList.add('powered-on');
 
-        // Restart periodic metric checks
         if (metricsInterval) clearInterval(metricsInterval);
-        metricsInterval = setInterval(() => {
-            if (state === 'ACTIVE' && metrics.o2 > 0) updateMetrics();
-        }, 4000);
+        metricsInterval = setInterval(() => { if(state==='ACTIVE' && metrics.o2 > 0) updateMetrics(); }, 4000);
 
         setTimeout(() => {
             inputLine.style.display = 'flex';
             metricsPanel.style.display = 'block';
+            
             updateMetrics();
             renderNode('WAKE');
-            outputDiv.innerHTML += `<span class="cmd-hint" onclick="document.getElementById('cmd').value='LEDGER';">💡 TIP: Type [LEDGER] for raw system telemetry when available.</span><br><br>`; 
+            // Give a subtle hint  
+            outputDiv.innerHTML += "<span class='cmd-hint' style='font-size:0.9rem; color:#ffab00'>💡 HINT: If you always follow instructions, the AI knows your path.</span>";
         }, 1200);
     });
 
     inputField.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && inputField.value.trim() !== '') {
             e.preventDefault();
-            if (inputField.value.trim() !== '') handleInput(inputField.value);
+            handleInput(inputField.value);
+            // Keep focus  
+            setTimeout(() => inputField.focus(), 20);
         }
     });
-
 </script>
-</body>
-</html>
