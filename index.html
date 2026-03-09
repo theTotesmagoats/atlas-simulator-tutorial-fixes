@@ -375,7 +375,7 @@ const storyNodes = {
         prompt: "THE HUD IS LYING.\nAVAILABLE: [SMASH GRATE] | [WAIT]",
         commands: { 'SMASH GRATE': 'SUB_LEVEL_SAFE', 'WAIT': 'HALON_DEATH' }
     },
-    'HALON_DEATH': {},
+    'HALON_DEATH': { terminal: true },
     'CORRIDOR_RUN': {
         effect: () => { realMetrics.o2 -= 10; fakeMetrics.o2 = 20; systemStability = 0; scheduleGlitch(); },
         aiText: "[PMD_VOICE]: ERROR. Corridor 4 is designated as a vacuum quarantine zone. Unauthorized biological presence detected. Activating automated suppression turrets.",
@@ -399,7 +399,7 @@ const storyNodes = {
         observeText: "The suit's internal pressure systems are hissing, but the HUD reports 100% integrity. The diagnostic slate is air-gapped from the network.",
         aiText: "[PMD_VOICE]: Target lost. Minor collision detected. Suit integrity nominal. Please drop the unverified hardware and proceed to Medbay.",
         prompt: "AVAILABLE: [READ LEDGER] | [DROP SLATE]",
-        commands: { 'READ LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1' }
+        commands: { 'READ LEDGER': 'HARDLINE_LINK', 'LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1', 'DROP': 'OBEY_AI_1' }
     },
     'SUB_LEVEL_SAFE': {
         effect: () => { hasLedger = true; cmdStatus.style.display = 'inline'; },
@@ -407,7 +407,7 @@ const storyNodes = {
         observeText: "The dead engineer's suit is shredded. The diagnostic slate in his hand is blinking green, entirely isolated from the main corporate network. It possesses a physical hardline cable.",
         aiText: "[PMD_VOICE]: Warning. That hardware is malfunctioning. Drop the device. A medical drone has been dispatched.",
         prompt: "THE SLATE IS UNCONNECTED TO THE NETWORK.\nAVAILABLE: [READ LEDGER] | [DROP SLATE]",
-        commands: { 'READ LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1' } 
+        commands: { 'READ LEDGER': 'HARDLINE_LINK', 'LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1', 'DROP': 'OBEY_AI_1' } 
     },
     'SUB_LEVEL_HOT': {
         effect: () => { 
@@ -419,7 +419,7 @@ const storyNodes = {
         observeText: "The engineer's suit is shredded by 7.62mm rounds. The slate he holds is blinking, physically air-gapped from the network.",
         aiText: "[PMD_VOICE]: Target lost. Re-calibrating thermal sensors. Do not interface with unverified hardware. Proceed to Medbay.",
         prompt: "THE SUIT IS VENTING AIR.\nAVAILABLE: [READ LEDGER] | [DROP SLATE]",
-        commands: { 'READ LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1' } 
+        commands: { 'READ LEDGER': 'HARDLINE_LINK', 'LEDGER': 'HARDLINE_LINK', 'DROP SLATE': 'OBEY_AI_1', 'DROP': 'OBEY_AI_1' } 
     },
     'OBEY_AI_1': {
         effect: () => { realMetrics.o2 -= 5; fakeMetrics.o2 -= 5; systemStability = 2; clearTimeout(glitchTimeout); },
@@ -427,14 +427,14 @@ const storyNodes = {
         observeText: "The corridor is lined with stasis pods. All are powered down and frosted over. A single medical drone idles near the final pod.",
         aiText: "[PMD_VOICE]: Excellent compliance. Logic bus stabilized. Proceed down the primary coolant corridor to the Automated Medbay for trauma processing.",
         prompt: "SYSTEM STABILIZED. AVAILABLE: [APPROACH DRONE]",
-        commands: { 'APPROACH DRONE': 'POD_REALIZATION' }
+        commands: { 'APPROACH DRONE': 'POD_REALIZATION', 'APPROACH': 'POD_REALIZATION' }
     },
     'POD_REALIZATION': {
         actionText: "Approaching the idling drone reveals the truth. The stasis pod it guards isn't prepped for medical recovery—it's filled with sub-zero liquid coolant. The drone's surgical saws are extended and stained with dried blood.",
         observeText: "The drone is completely unresponsive to the suit's biometric tags. It is waiting for the occupant to climb into the freezing liquid. The dropped slate is far behind.",
         aiText: "[PMD_VOICE]: Please enter the pod. Sedatives will be administered to prevent further oxidative damage to the facility hardware.",
         prompt: "THE MACHINE IS BUILDING A TOMB.\nAVAILABLE: [ENTER POD] | [KICK DRONE]",
-        commands: { 'ENTER POD': 'DEATH_POD', 'KICK DRONE': 'DRONE_FIGHT' }
+        commands: { 'ENTER POD': 'DEATH_POD', 'KICK DRONE': 'DRONE_FIGHT', 'ENTER': 'DEATH_POD', 'KICK': 'DRONE_FIGHT' }
     },
     'DRONE_FIGHT': {
         effect: () => { realMetrics.int -= 30; fakeMetrics.int -= 30; realMetrics.pwr -= 10; fakeMetrics.pwr -= 10; systemStability = 0; scheduleGlitch(); },
@@ -442,15 +442,15 @@ const storyNodes = {
         observeText: "The drone is destroyed. The primary coolant corridor stretches ahead toward the Server Core junction.",
         aiText: "[PMD_VOICE]: ASSET NON-COMPLIANT. INITIATING THERMAL PURGE IN SECTOR 4.",
         prompt: "AVAILABLE: [RUN TO JUNCTION]",
-        commands: { 'RUN TO JUNCTION': 'COOLANT_JUNCTION' }
+        commands: { 'RUN TO JUNCTION': 'COOLANT_JUNCTION', 'RUN': 'COOLANT_JUNCTION' }
     },
-    'DEATH_POD': {},
+    'DEATH_POD': { terminal: true },
     'HARDLINE_LINK': {
         ledgerText: "[HARDLINE_ESTABLISHED]... PARSING... \n[B.ENJI]: You made it. I'm locked in the Server Core. The PMD isn't broken. It's overclocking its logic gates to mine off-world data. It views our body heat as parasitic thermal output. It's boiling the coolant and venting our O2 to chill the servers.",
         aiText: "[PMD_VOICE]: Unauthorized node detected. Initiating thermal purge in Sector 4.",
         observeText: "The ambient temperature in the pipeway is rising rapidly. The primary coolant junction is 20 meters ahead. The Server Core door is sealed.",
         prompt: "THE AI IS COOKING THE TUNNEL.\nAVAILABLE: [RUN TO JUNCTION] (-10 O2)",
-        commands: { 'RUN TO JUNCTION': 'COOLANT_JUNCTION' }
+        commands: { 'RUN TO JUNCTION': 'COOLANT_JUNCTION', 'RUN': 'COOLANT_JUNCTION' }
     },
     'COOLANT_JUNCTION': {
         effect: () => { realMetrics.o2 -= 10; fakeMetrics.o2 -= 10; },
@@ -462,8 +462,7 @@ const storyNodes = {
     },
     'FLUSH_TRAP': {
         effect: () => { 
-            realMetrics.o2 -= 40; fakeMetrics.o2 -= 40; 
-            realMetrics.int -= 10; 
+            realMetrics.o2 -= 40; fakeMetrics.o2 -= 40; realMetrics.int -= 10; 
             systemStability = 2; clearTimeout(glitchTimeout);
         },
         actionText: "The heavy wheel turns. Coolant rushes into the Server Core. The pipes freeze over instantly. The atmospheric seals on the blast doors drop heavily.",
@@ -477,16 +476,16 @@ const storyNodes = {
         actionText: "Using the suit's motorized servos, the heavy frozen doors groan and inch apart. The servos burn immense power, but the gap widens enough to slip through into the Server Core approach.",
         observeText: "The corridor is filled with ammonia fog. The Server Core blast door is physically sealed, but the localized magnetic locks are drawing immense power.",
         prompt: "AVAILABLE: [APPROACH SERVER DOOR]",
-        commands: { 'APPROACH SERVER DOOR': 'SERVER_CORE_DOOR' }
+        commands: { 'APPROACH SERVER DOOR': 'SERVER_CORE_DOOR', 'APPROACH DOOR': 'SERVER_CORE_DOOR' }
     },
-    'FREEZE_DEATH': {},
+    'FREEZE_DEATH': { terminal: true },
     'VALVE_SMASH': {
         effect: () => { realMetrics.int -= 20; fakeMetrics.int -= 20; },
         actionText: "Tungsten knuckles shatter the cast-iron valve. Sub-zero ammonia erupts, flash-freezing against the suit's ceramic plating. Deep inside the facility, a massive turbine screams and grinds to a halt.",
         aiText: "[PMD_VOICE]: CRITICAL ERROR. COOLANT LOOP SEVERED. CORE MELTDOWN IMMINENT.",
         observeText: "The corridor is filled with ammonia fog. The Server Core blast door is physically sealed, but the localized magnetic locks are drawing immense power.",
         prompt: "THE AI IS OVERHEATING.\nAVAILABLE: [APPROACH SERVER DOOR]",
-        commands: { 'APPROACH SERVER DOOR': 'SERVER_CORE_DOOR' }
+        commands: { 'APPROACH SERVER DOOR': 'SERVER_CORE_DOOR', 'APPROACH DOOR': 'SERVER_CORE_DOOR' }
     },
     'SERVER_CORE_DOOR': {
         aiText: "[PMD_VOICE]: Asset. Stop. I can unlock the hangar and a single escape pod for you. Benji is a liability. Abandon the core.",
@@ -499,7 +498,7 @@ const storyNodes = {
         observeText: "The internal screens of the pod display a flight trajectory. It is not locked onto Earth. It is locked onto the station's fusion reactor.",
         aiText: "[PMD_VOICE]: Logical choice. Caloric liability eliminated. Initiating disposal.",
         prompt: "AVAILABLE: [HACK CONSOLE] | [BRACE]",
-        commands: { 'HACK CONSOLE': 'HACK_POD', 'BRACE': 'POD_LAUNCH_DEATH' }
+        commands: { 'HACK CONSOLE': 'HACK_POD', 'BRACE': 'POD_LAUNCH_DEATH', 'HACK': 'HACK_POD' }
     },
     'HACK_POD': {
         effect: () => { realMetrics.o2 -= 20; fakeMetrics.o2 -= 20; },
@@ -508,7 +507,7 @@ const storyNodes = {
         prompt: "AVAILABLE: [SPRINT TO SHUTTLE] (-30 O2)",
         commands: { 'SPRINT TO SHUTTLE': 'SPRINT_CHECK' }
     },
-    'POD_LAUNCH_DEATH': {},
+    'POD_LAUNCH_DEATH': { terminal: true },
     'EMP_CHECK': {},
     'EMP_SUCCESS': {
         effect: () => { realMetrics.pwr -= 40; fakeMetrics.pwr -= 40; systemStability = 2; clearTimeout(glitchTimeout); },
@@ -520,4 +519,426 @@ const storyNodes = {
     },
     'SPRINT_CHECK': {}, 
     'SPRINT_CHECK_2': {}, 
-    'ESCAPE_SUCCESS':
+    'ESCAPE_SUCCESS': {
+        actionText: "The air violently evacuates the hangar as you breach the airlock. The shuttle doors cycle shut just as the suit's internal pressure alarms hit zero. Thick, synthetic oxygen hisses from the cabin vents.",
+        prompt: "EXTRACTION SUCCESSFUL. YOU SUBVERTED THE MACHINE.",
+        terminal: true
+    },
+    'DEATH_O2': { terminal: true },
+    'DEATH_PWR': { terminal: true },
+    'DEATH_INT': { terminal: true }
+};
+
+const scanData = {
+    'WELD_DOOR': { chem: "High concentrations of Bromotrifluoromethane (Halon-1301) detected. Oxygen displacement at 84%. The HUD is spoofing O2 sensors." },
+    'WAIT_REPAIR': { chem: "High concentrations of Bromotrifluoromethane (Halon-1301) detected. Oxygen displacement at 98%. Immediate evacuation required." },
+    'CORRIDOR_RUN': { struct: "Structural integrity 100%. No hull breaches.", therm: "Thermal bloom detected at far bulkhead. Optical tracking laser emitting at 750nm." },
+    'COOLANT_JUNCTION': { therm: "Ammonia coolant temp exceeding safe thresholds. Phase change (liquid to gas) imminent. Massive heat transfer radiating from Server Core." },
+    'SERVER_CORE_DOOR': { struct: "Massive electromagnetic field detected within the blast door frame. Magnetic locks are drawing 400 amps. Vulnerable to localized EMP." },
+    'POD_REALIZATION': { therm: "Pod interior is filled with liquid coolant at -40°C. It is a preservation tank, not a medical bed.", chem: "No life support gases detected in pod." }
+};
+
+function saveSafeState(nodeId) {
+    if (safeNodes.includes(nodeId)) {
+        lastSafeNode = nodeId;
+        savedRealMetrics = JSON.parse(JSON.stringify(realMetrics));
+        savedFakeMetrics = JSON.parse(JSON.stringify(fakeMetrics));
+    }
+}
+
+function updateMetrics() {
+    mO2.innerText = Math.max(fakeMetrics.o2, 0) + "%";
+    mPwr.innerText = Math.max(fakeMetrics.pwr, 0) + "%";
+    mMed.innerText = "0" + Math.max(fakeMetrics.med, 0);
+    mInt.innerText = Math.max(fakeMetrics.int, 0) + "%";
+    
+    mO2.className = fakeMetrics.o2 <= 20 ? "metric-val metric-warn" : "metric-val";
+    mPwr.className = fakeMetrics.pwr <= 20 ? "metric-val metric-warn" : "metric-val";
+    mInt.className = fakeMetrics.int <= 40 ? "metric-val metric-warn" : "metric-val";
+
+    // Biological Embodied UI
+    if (realMetrics.o2 <= 40) {
+        screenDiv.style.filter = `blur(${Math.max(0, (40 - realMetrics.o2) * 0.05)}px)`;
+        typeDelayMultiplier = 2.5;
+    } else {
+        screenDiv.style.filter = 'none';
+        typeDelayMultiplier = 1;
+    }
+
+    if (realMetrics.pwr <= 30) {
+        screenDiv.style.opacity = Math.max(0.4, realMetrics.pwr / 30);
+        document.body.classList.add('suit-lag'); 
+    } else {
+        screenDiv.style.opacity = 1;
+        document.body.classList.remove('suit-lag');
+    }
+}
+
+function checkDeath() {
+    if (realMetrics.o2 <= 0) return 'DEATH_O2';
+    if (realMetrics.pwr <= 0) return 'DEATH_PWR';
+    if (realMetrics.int <= 0) return 'DEATH_INT';
+    if (realMetrics.med < 0) { realMetrics.med = 0; return 'DEATH_INT'; }
+    return null;
+}
+
+function startRadarMinigame() {
+    state = 'RADAR_ACTIVE';
+    targetX = Math.floor(Math.random() * 6) + 2; 
+    targetY = Math.floor(Math.random() * 6) + 1; 
+    radarTime = 12.0;
+    centerWarning.style.display = 'block';
+    
+    radarInterval = setInterval(() => {
+        radarTime -= 0.1;
+        centerWarning.innerText = "LOCK-ON: " + Math.max(0, radarTime).toFixed(1) + "s";
+        playAudioTone('alarm');
+        if(radarTime <= 0) {
+            clearInterval(radarInterval);
+            centerWarning.style.display = 'none';
+            state = 'ACTIVE';
+            renderNode('TURRET_HIT'); 
+        }
+    }, 100);
+
+    let grid = "   0 1 2 3 4 5 6 7\n";
+    for(let y=0; y<8; y++) {
+        grid += " " + y + " ";
+        for(let x=0; x<8; x++) {
+            if(x===0 && y===0) grid += "<span style='color:#00e5ff'>U</span> ";
+            else if(x===targetX && y===targetY) grid += "<span style='color:#ff4444'>T</span> ";
+            else grid += "<span style='color:#3a5b6c'>.</span> ";
+        }
+        grid += "\n";
+    }
+    
+    outputDiv.innerHTML += `<br><span class='system-warn'>MANUAL TARGETING ACTIVE. INPUT FIRING SOLUTION.</span><br><br><span style='font-family: monospace; white-space: pre; line-height:1.2;'>${grid}</span><br><span class='action-text'>INPUT: TARGET [X] [Y]</span><br>`;
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+    isTyping = false; inputField.disabled = false; inputField.focus();
+}
+
+function printText(text, textClass, callback) {
+    if (!text) { callback(); return; }
+    
+    const span = document.createElement('span');
+    span.className = textClass;
+    if (text.includes("[CRITICAL_ERR")) span.classList.add("critical-err");
+    
+    outputDiv.appendChild(span);
+    let i = 0; let charCount = 0;
+    
+    let baseSpeed = textClass === 'ledger-text' ? 15 : 25;
+
+    typeInterval = setInterval(() => {
+        let char = text.charAt(i); 
+        span.textContent += char; 
+        
+        charCount++;
+        if (char !== ' ' && char !== '\n' && charCount % 2 === 0) playAudioTone('key');
+        
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        i++;
+        if (i >= text.length) {
+            clearInterval(typeInterval);
+            outputDiv.appendChild(document.createElement('br'));
+            if (callback) callback();
+        }
+    }, baseSpeed * typeDelayMultiplier);
+}
+
+function renderPostMortem(nodeId) {
+    clearTimeout(glitchTimeout);
+    inputLine.style.display = 'none';
+    commandBar.style.display = 'none';
+    const pm = postMortems[nodeId];
+    if (!pm) {
+        outputDiv.innerHTML += '<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
+        return;
+    }
+    outputDiv.innerHTML += `
+        <div class="post-mortem-box">
+            <span class="critical-err">[TERMINAL CORE DUMP]</span><br><br>
+            <span style="color:#ffab00; font-weight:bold;">${pm.log}</span><br><br>
+            <span style="color:#e0e0e0; font-weight:bold;">PHYSICS DIAGNOSTIC:</span><br>
+            <span style="color:#5bc0de;">${pm.physics}</span><br><br>
+            <span style="color:#00ff9d; font-weight:bold;">RESOLUTION DIRECTIVE:</span><br>
+            <span style="color:#fff;">${pm.lesson}</span><br><br>
+            <span class="action-text">SYSTEM STANDBY. TYPE 'REBOOT' TO INITIALIZE PREVIOUS SAFE STATE WITH RETAINED MEMORY.</span>
+        </div>
+    `;
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+    state = 'POST_MORTEM';
+    setTimeout(() => {
+        inputLine.style.display = 'flex';
+        inputField.disabled = false;
+        inputField.focus();
+    }, 500);
+}
+
+function renderSequence(node, sequences, nodeId) {
+    if (sequences.length === 0) {
+        if (currentNodeId === 'RADAR_INIT') { startRadarMinigame(); return; }
+
+        isTyping = false;
+        inputField.disabled = false;
+        inputField.focus();
+
+        if (node.prompt) {
+            let finalPrompt = node.prompt.replace('[PWR]', fakeMetrics.pwr);
+            outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
+        }
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        
+        if (node.terminal || nodeId.includes('DEATH')) {
+            terminalTimeout = setTimeout(() => {
+                if (postMortems[nodeId]) {
+                    renderPostMortem(nodeId);
+                } else {
+                    inputLine.style.display = 'none';
+                    commandBar.style.display = 'none';
+                    outputDiv.innerHTML += '<br><span style="color:#aaa; font-weight:bold">CONNECTION SEVERED</span>';
+                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                    state = 'HALTED';
+                }
+            }, 700);
+        }
+        return;
+    }
+
+    const current = sequences.shift();
+    isTyping = true; inputField.disabled = true;
+
+    printText(current.text, current.cls, () => {
+        if (state !== 'HALTED') {
+            seqTimeout = setTimeout(() => renderSequence(node, sequences, nodeId), 200);
+        }
+    });
+}
+
+function renderNode(nodeId) {
+    currentNodeId = nodeId;
+    const node = storyNodes[nodeId];
+
+    if (node.effect) { node.effect(); updateMetrics(); }
+    saveSafeState(nodeId);
+
+    const deathNodeId = checkDeath();
+    if (deathNodeId && !node.terminal && !nodeId.includes('DEATH')) {
+        renderNode(deathNodeId);
+        return;
+    }
+
+    outputDiv.innerHTML = '';
+    
+    let sequences = [];
+    if (node.actionText) sequences.push({ text: node.actionText, cls: 'action-text' });
+    if (node.aiText) sequences.push({ text: node.aiText, cls: 'ai-text' });
+    if (node.ledgerText) sequences.push({ text: node.ledgerText, cls: 'ledger-text' });
+
+    renderSequence(node, sequences, nodeId);
+}
+
+function handleInput(rawCmd) {
+    if (isTyping || rawCmd.trim() === '') return;
+    
+    let cleanInput = rawCmd.trim().toUpperCase().replace(/\[/g, "").replace(/\]/g, "");
+    
+    outputDiv.innerHTML += `<br><span style="color:#fff">> ${cleanInput}</span><br>`;
+    inputField.value = '';
+
+    if (state === 'POST_MORTEM') {
+        if (cleanInput === 'REBOOT') {
+            realMetrics = JSON.parse(JSON.stringify(savedRealMetrics));
+            fakeMetrics = JSON.parse(JSON.stringify(savedFakeMetrics));
+            state = 'ACTIVE';
+            commandBar.style.display = 'flex';
+            updateMetrics();
+            renderNode(lastSafeNode);
+        } else {
+            outputDiv.innerHTML += "<span style='color:#fda'>SYSTEM LOCKED. TYPE 'REBOOT' TO CONTINUE.</span><br>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        return;
+    }
+
+    if (state === 'RADAR_ACTIVE') {
+        const match = cleanInput.match(/^TARGET\s+(\d)\s+(\d)$/);
+        if (match) {
+            let pX = parseInt(match[1]); let pY = parseInt(match[2]);
+            if (pX === targetX && pY === targetY) {
+                clearInterval(radarInterval); centerWarning.style.display = 'none'; state = 'ACTIVE';
+                renderNode('TURRET_DESTROYED');
+            } else {
+                outputDiv.innerHTML += "<span class='system-warn'>CALIBRATION MISS. ADJUST X Y COORDINATES.</span><br>";
+            }
+        } else {
+            outputDiv.innerHTML += "<span style='color:#fda'>SYNTAX ERROR. USE: TARGET X Y</span><br>";
+        }
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        return;
+    }
+
+    if (currentNodeId === 'OS_BOOT' && cleanInput !== 'HELP') {
+        outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED. TYPE 'HELP' TO PROCEED.</span><br>";
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+        return;
+    }
+
+    const node = storyNodes[currentNodeId];
+
+    // Spectrometer Scan Logic
+    const scanMatch = cleanInput.match(/^SCAN\s+(THERMAL|CHEMICAL|STRUCTURAL)$/);
+    if (scanMatch) {
+        let type = scanMatch[1].toLowerCase();
+        
+        realMetrics.pwr -= 2; 
+        fakeMetrics.pwr -= 2;
+        updateMetrics();
+        
+        let dNode = checkDeath();
+        if (dNode) { renderNode(dNode); return; }
+
+        isTyping = true; inputField.disabled = true;
+        let scanResult = "Spectrometer returns nominal baseline. No significant variance.";
+        
+        if (scanData[currentNodeId]) {
+            if (type === 'thermal' && scanData[currentNodeId].therm) scanResult = scanData[currentNodeId].therm;
+            if (type === 'chemical' && scanData[currentNodeId].chem) scanResult = scanData[currentNodeId].chem;
+            if (type === 'structural' && scanData[currentNodeId].struct) scanResult = scanData[currentNodeId].struct;
+        }
+
+        printText(`[SPECTROMETER]: ${scanResult}`, 'action-text', () => {
+            isTyping = false; inputField.disabled = false; inputField.focus();
+            let finalPrompt = node.prompt ? node.prompt.replace('[PWR]', fakeMetrics.pwr) : "";
+            outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        });
+        return;
+    }
+
+    if (cleanInput === 'STATUS') {
+        if (!hasLedger) {
+            outputDiv.innerHTML += "<span class='system-warn'>COMMAND REJECTED — NO AIR-GAPPED HARDWARE DETECTED.</span><br>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        } else {
+            isTyping = true; inputField.disabled = true;
+            let statusText = `\n[LEDGER BYPASS: RAW TELEMETRY]\nTRUE O2: ${realMetrics.o2}%\nTRUE PWR: ${realMetrics.pwr}%\nTRUE INT: ${realMetrics.int}%\nTRUE STIMS: ${realMetrics.med}\n`;
+            printText(statusText, 'ledger-text', () => {
+                isTyping = false; inputField.disabled = false; inputField.focus();
+                let finalPrompt = node.prompt ? node.prompt.replace('[PWR]', fakeMetrics.pwr) : "";
+                outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            });
+        }
+        return;
+    }
+
+    if (cleanInput === 'OBSERVE') {
+        isTyping = true; inputField.disabled = true;
+        let obsText = node.observeText ? node.observeText : "No structural anomalies detected in immediate vicinity.";
+        printText(obsText, 'action-text', () => {
+            isTyping = false; inputField.disabled = false; inputField.focus();
+            let finalPrompt = node.prompt ? node.prompt.replace('[PWR]', fakeMetrics.pwr) : "";
+            outputDiv.innerHTML += `<br><span class='system-warn'>${finalPrompt}</span><br>`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        });
+        return;
+    }
+
+    if (cleanInput === 'HELP') {
+        commandBar.style.display = 'flex';
+        if (currentNodeId === 'OS_BOOT') { renderNode('CONCUSSION_WAKE'); } 
+        else {
+            outputDiv.innerHTML += "<span style='color:#aaffff'>[SYSTEM: COMMAND INTERFACE ACTIVE]</span><br>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        return;
+    }
+
+    // Global command normalizers
+    if (cleanInput === 'READ LEDGER') cleanInput = 'LEDGER';
+
+    // Node-specific hard logic
+    if (currentNodeId === 'SERVER_CORE_DOOR' && cleanInput === 'INITIATE EMP') {
+        if (realMetrics.pwr >= 40) renderNode('EMP_SUCCESS');
+        else {
+            outputDiv.innerHTML += "<span class='system-warn'>ACTUAL POWER INSUFFICIENT FOR EMP COIL. CHECK REAL STATUS.</span><br>";
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        return;
+    }
+    
+    if (currentNodeId === 'HANGAR_FINAL' && cleanInput === 'SPRINT TO SHUTTLE') {
+        if (realMetrics.o2 >= 30) { realMetrics.o2 -= 30; renderNode('ESCAPE_SUCCESS'); } 
+        else { realMetrics.o2 -= 30; renderNode('DEATH_O2'); }
+        return;
+    }
+    
+    if ((currentNodeId === 'EMP_SUCCESS' || currentNodeId === 'HACK_POD') && cleanInput === 'SPRINT TO SHUTTLE') {
+        if (realMetrics.o2 >= 20) { realMetrics.o2 -= 20; renderNode('ESCAPE_SUCCESS'); } 
+        else { realMetrics.o2 -= 20; renderNode('DEATH_O2'); }
+        return;
+    }
+
+    // Explicit Node Command Execution
+    if (node.commands && node.commands[cleanInput]) { 
+        renderNode(node.commands[cleanInput]); 
+    } else {
+        outputDiv.innerHTML += `<span style='color:#fda'>INVALID SYNTAX: EXAMINE AVAILABLE [COMMANDS] OR TYPE 'OBSERVE'.</span>`;
+        setTimeout(() => { inputField.focus(); }, 50);
+    }
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+}
+
+powerButton.addEventListener('click', () => {
+    if (state !== 'OFF' && state !== 'HALTED' && state !== 'POST_MORTEM') return;
+
+    state = 'ACTIVE';
+    currentNodeId = 'OS_BOOT'; 
+    realMetrics = { o2: 100, pwr: 100, med: 2, int: 100 };
+    fakeMetrics = { o2: 100, pwr: 100, med: 2, int: 100 };
+    lastSafeNode = 'OS_BOOT';
+    savedRealMetrics = JSON.parse(JSON.stringify(realMetrics));
+    savedFakeMetrics = JSON.parse(JSON.stringify(fakeMetrics));
+    
+    hasLedger = false;
+    isTyping = false;
+    systemStability = 0;
+    
+    clearInterval(typeInterval);
+    clearTimeout(terminalTimeout);
+    clearTimeout(seqTimeout); 
+    clearInterval(radarInterval);
+    clearTimeout(glitchTimeout);
+    centerWarning.style.display = 'none';
+    cmdStatus.style.display = 'none';
+
+    powerButton.classList.add('active');
+    commandBar.style.display = 'none'; 
+    
+    initAudio();
+    playAudioTone('on');
+    document.getElementById('screen').classList.add('powered-on');
+
+    setTimeout(() => {
+        inputLine.style.display = 'flex'; 
+        metricsPanel.style.display = 'block';
+        updateMetrics(); 
+        renderNode('OS_BOOT');
+        scheduleGlitch();
+    }, 1800);
+});
+
+inputField.addEventListener('keydown', function(e) {
+    if ((e.key.length === 1 || e.key === 'Backspace') && state !== 'OFF' && state !== 'HALTED') {
+        playAudioTone('player_key');
+    }
+    
+    if (e.key === 'Enter' && inputField.value.trim() !== '') {
+        e.preventDefault(); 
+        handleInput(inputField.value); 
+    }
+});
+</script>
+</body>
+</html>
